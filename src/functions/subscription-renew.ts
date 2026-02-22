@@ -12,10 +12,7 @@
  * or use the Microsoft Graph Explorer / az cli.
  */
 import { app, InvocationContext, Timer } from "@azure/functions"
-import { getTokens } from "../token-manager.js"
-
-const MS_GRAPH_BASE = "https://graph.microsoft.com/v1.0"
-const USER_AGENT = "microsoft-todo-mcp-server/1.0"
+import { graphClient } from "../graph/GraphClient.js"
 
 /** Maximum subscription expiry for Microsoft To Do tasks: 4 230 min ≈ 2.9 days. */
 const SUBSCRIPTION_EXPIRY_MINUTES = 4230
@@ -32,32 +29,18 @@ async function renewSubscriptions(_timer: Timer, context: InvocationContext): Pr
     .map((s) => s.trim())
     .filter(Boolean)
 
-  const tokens = await getTokens()
-  if (!tokens) {
-    context.error("No Microsoft Graph tokens available – cannot renew subscriptions")
-    return
-  }
-
   const expirationDateTime = new Date(Date.now() + SUBSCRIPTION_EXPIRY_MINUTES * 60 * 1000).toISOString()
 
   for (const id of subscriptionIds) {
     try {
-      const res = await fetch(`${MS_GRAPH_BASE}/subscriptions/${id}`, {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${tokens.accessToken}`,
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          "User-Agent": USER_AGENT,
-        },
-        body: JSON.stringify({ expirationDateTime }),
+      const result = await graphClient.request(`https://graph.microsoft.com/v1.0/subscriptions/${id}`, "PATCH", {
+        expirationDateTime,
       })
 
-      if (res.ok) {
+      if (result !== null) {
         context.log(`Renewed subscription ${id} until ${expirationDateTime}`)
       } else {
-        const text = await res.text()
-        context.error(`Failed to renew subscription ${id}: ${res.status} ${text}`)
+        context.error(`Failed to renew subscription ${id}: unexpected null response`)
       }
     } catch (err) {
       context.error(`Error renewing subscription ${id}:`, err)

@@ -26,75 +26,9 @@
  *   }
  */
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions"
-import { getTokens } from "../token-manager.js"
-
-const MS_GRAPH_BASE = "https://graph.microsoft.com/v1.0"
-const GITHUB_API_BASE = "https://api.github.com"
-const USER_AGENT = "microsoft-todo-mcp-server/1.0"
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-/**
- * Matches a GitHub repository reference in the form #owner/repo embedded in text.
- * Owner: starts/ends with alphanumeric, may contain hyphens.
- * Repo: starts with alphanumeric or underscore; may contain alphanumeric, hyphens,
- *       underscores, and dots.
- * The hashtag must be followed by whitespace, end-of-string, or a non-path character.
- */
-const GITHUB_REPO_HASHTAG_PATTERN =
-  /#([a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?\/[a-zA-Z0-9_][a-zA-Z0-9_.-]*)(?:\s|$|[^\w/.-])/
-
-async function graphRequest<T>(url: string, token: string, method = "GET", body?: unknown): Promise<T | null> {
-  const res = await fetch(url, {
-    method,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      "User-Agent": USER_AGENT,
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  })
-  if (res.status === 204) return null
-  if (!res.ok) {
-    const text = await res.text()
-    throw new Error(`Graph API ${method} ${url} → ${res.status}: ${text}`)
-  }
-  return res.json() as Promise<T>
-}
-
-async function githubRequest<T>(url: string, token: string, method = "GET", body?: unknown): Promise<T | null> {
-  const res = await fetch(url, {
-    method,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/vnd.github+json",
-      "Content-Type": "application/json",
-      "User-Agent": USER_AGENT,
-      "X-GitHub-Api-Version": "2022-11-28",
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  })
-  if (res.status === 204) return null
-  if (!res.ok) {
-    const text = await res.text()
-    throw new Error(`GitHub API ${method} ${url} → ${res.status}: ${text}`)
-  }
-  return res.json() as Promise<T>
-}
-
-/**
- * Extract #owner/repo from text (title or body).
- * Format: #owner/repo preceded by start-of-string or whitespace.
- */
-function extractGitHubRepo(text: string): { owner: string; repo: string } | null {
-  const match = text.match(GITHUB_REPO_HASHTAG_PATTERN)
-  if (match) {
-    const [owner, repo] = match[1].split("/")
-    if (owner && repo) return { owner, repo }
-  }
-  return null
-}
+import { graphClient } from "../graph/GraphClient.js"
+import { gitHubClient, GITHUB_API_BASE } from "../github/GitHubClient.js"
+import { extractGitHubRepo } from "../github/utils.js"
 
 // ── Notification processing ───────────────────────────────────────────────────
 
@@ -113,14 +47,7 @@ interface GraphNotification {
 async function processNotification(notification: GraphNotification, context: InvocationContext): Promise<void> {
   if (notification.changeType !== "created") return
 
-  const tokens = await getTokens()
-  if (!tokens) {
-    context.error("No Microsoft Graph tokens available")
-    return
-  }
-
-  const githubToken = process.env.GITHUB_TOKEN
-  if (!githubToken) {
+  if (!gitHubClient.hasToken()) {
     context.warn("GITHUB_TOKEN not configured – skipping GitHub issue creation")
     return
   }
@@ -134,13 +61,13 @@ async function processNotification(notification: GraphNotification, context: Inv
 
   // Resolve the task from the resource URL
   // e.g. "me/todo/lists/{listId}/tasks/{taskId}"
-  const resourceUrl = `${MS_GRAPH_BASE}/${notification.resource}`
+  const resourceUrl = `https://graph.microsoft.com/v1.0/${notification.resource}`
 
-  const task = await graphRequest<{
+  const task = await graphClient.request<{
     id: string
     title: string
     body?: { content: string; contentType: string }
-  }>(resourceUrl, tokens.accessToken)
+  }>(resourceUrl)
 
   if (!task) {
     context.warn(`Could not fetch task from ${resourceUrl}`)
@@ -166,9 +93,8 @@ async function processNotification(notification: GraphNotification, context: Inv
     ? `${bodyContent}\n\n---\n*Created from Microsoft To Do task*`
     : "*Created from Microsoft To Do task*"
 
-  const issue = await githubRequest<{ html_url: string; number: number }>(
+  const issue = await gitHubClient.request<{ html_url: string; number: number }>(
     `${GITHUB_API_BASE}/repos/${repo.owner}/${repo.repo}/issues`,
-    githubToken,
     "POST",
     { title: task.title, body: issueBody },
   )
@@ -186,7 +112,7 @@ async function processNotification(notification: GraphNotification, context: Inv
   const listIdMatch = notification.resource.match(/lists\/([^/]+)\/tasks/)
   if (listIdMatch) {
     const listId = listIdMatch[1]
-    await graphRequest(`${MS_GRAPH_BASE}/me/todo/lists/${listId}/tasks/${task.id}`, tokens.accessToken, "PATCH", {
+    await graphClient.request(`https://graph.microsoft.com/v1.0/me/todo/lists/${listId}/tasks/${task.id}`, "PATCH", {
       body: { content: updatedBody, contentType: "text" },
     })
   }

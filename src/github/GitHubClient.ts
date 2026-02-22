@@ -1,7 +1,7 @@
 /**
  * GitHubClient – a thin wrapper around the GitHub REST API.
  *
- * Uses the `GITHUB_TOKEN` environment variable for authentication.
+ * Reads the `GITHUB_TOKEN` environment variable for authentication.
  */
 import { GITHUB_API_BASE, USER_AGENT } from "../constants.js"
 
@@ -20,22 +20,32 @@ export interface GitHubIssue {
 }
 
 export class GitHubClient {
+  /** Returns `true` when a GitHub token is configured in the environment. */
+  hasToken(): boolean {
+    return !!process.env.GITHUB_TOKEN
+  }
+
   /** Returns the GitHub Personal Access Token from the environment, or `null`. */
-  getToken(): string | null {
+  private getToken(): string | null {
     return process.env.GITHUB_TOKEN || null
   }
 
   /**
    * Perform an authenticated GitHub API request.
+   * Acquires the token from the environment internally.
    *
    * @param url    Full URL (use `GITHUB_API_BASE` + path).
-   * @param token  Bearer access token.
    * @param method HTTP method (default: `"GET"`).
    * @param body   Request body for POST / PATCH requests.
    * @returns      Parsed JSON response, or `null` for 204 No Content.
-   * @throws       Error on HTTP error responses.
+   * @throws       Error when GITHUB_TOKEN is not configured or on HTTP error responses.
    */
-  async request<T>(url: string, token: string, method = "GET", body?: unknown): Promise<T | null> {
+  async request<T>(url: string, method = "GET", body?: unknown): Promise<T | null> {
+    const token = this.getToken()
+    if (!token) {
+      throw new Error("GITHUB_TOKEN environment variable is not configured")
+    }
+
     const headers: Record<string, string> = {
       "User-Agent": USER_AGENT,
       Accept: "application/vnd.github+json",
