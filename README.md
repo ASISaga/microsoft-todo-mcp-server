@@ -29,7 +29,7 @@ AI Assistant (Claude/Cursor)
 
 ## Features
 
-- **MCP Tools** (15 tools): full task/list/checklist management via Graph API
+- **MCP Tools** (19 tools): full task/list/checklist management via Graph API
 - **GitHub → To Do**: when a GitHub issue is opened, a linked To Do task is created; when closed, the task is marked complete
 - **To Do → GitHub**: when a task is created with a `#owner/repo` hashtag, a GitHub issue is opened automatically
 - **Automatic token refresh**: OAuth tokens are refreshed transparently using stored refresh tokens
@@ -97,24 +97,33 @@ az deployment group create \
       graphSubscriptionSecret=<random-secret>
 ```
 
+After deployment, set the OAuth refresh token in the Function App settings (it cannot be passed through Bicep because it is obtained after the OAuth flow in step 2):
+
+```bash
+az functionapp config appsettings set \
+  --resource-group rg-mstodo-mcp \
+  --name mstodo-mcp \
+  --settings MS_TODO_REFRESH_TOKEN=<your-refresh-token>
+```
+
 ### 4. Configure GitHub CI/CD
 
 Add the following secrets to your GitHub repository (**Settings → Secrets and variables → Actions**):
 
-| Secret                      | Value                                           |
-| --------------------------- | ----------------------------------------------- |
-| `AZURE_CLIENT_ID`           | Service principal client ID for deployment      |
-| `AZURE_TENANT_ID`           | Azure tenant ID                                 |
-| `AZURE_SUBSCRIPTION_ID`     | Azure subscription ID                           |
-| `AZURE_RESOURCE_GROUP`      | Resource group name                             |
-| `AZURE_FUNCTIONAPP_NAME`    | Function app name (e.g. `mstodo-mcp`)           |
-| `MS_TODO_CLIENT_ID`         | App registration client ID                      |
-| `MS_TODO_CLIENT_SECRET`     | App registration client secret                  |
-| `MS_TODO_TENANT_ID`         | Tenant ID                                       |
-| `GH_INTEGRATION_TOKEN`      | GitHub PAT for To Do → GitHub issue creation    |
-| `GITHUB_WEBHOOK_SECRET`     | Shared secret for webhook validation            |
-| `GRAPH_SUBSCRIPTION_SECRET` | Shared secret for Graph notification validation |
-| `MS_TODO_LIST_ID`           | To Do list ID for GitHub → task creation        |
+| Secret                      | Value                                                                                                                                              |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AZURE_CLIENT_ID`           | Service principal client ID for deployment                                                                                                         |
+| `AZURE_TENANT_ID`           | Azure tenant ID                                                                                                                                    |
+| `AZURE_SUBSCRIPTION_ID`     | Azure subscription ID                                                                                                                              |
+| `AZURE_RESOURCE_GROUP`      | Resource group name                                                                                                                                |
+| `AZURE_FUNCTIONAPP_NAME`    | Function app name (e.g. `mstodo-mcp`)                                                                                                              |
+| `MS_TODO_CLIENT_ID`         | App registration client ID                                                                                                                         |
+| `MS_TODO_CLIENT_SECRET`     | App registration client secret                                                                                                                     |
+| `MS_TODO_TENANT_ID`         | Tenant ID                                                                                                                                          |
+| `GH_INTEGRATION_TOKEN`      | GitHub PAT for To Do → GitHub issue creation (maps to `GITHUB_TOKEN` app setting; named differently because `GITHUB_TOKEN` is reserved in Actions) |
+| `GITHUB_WEBHOOK_SECRET`     | Shared secret for webhook validation                                                                                                               |
+| `GRAPH_SUBSCRIPTION_SECRET` | Shared secret for Graph notification validation                                                                                                    |
+| `MS_TODO_LIST_ID`           | To Do list ID for GitHub → task creation                                                                                                           |
 
 Push to `main` to trigger an automatic deployment.
 
@@ -166,27 +175,59 @@ The functions are available at `http://localhost:7071/api/`.
 
 ## MCP Tools Reference
 
-| Tool                            | Description                                    |
-| ------------------------------- | ---------------------------------------------- |
-| `auth-status`                   | Show current authentication status             |
-| `get-task-lists`                | List all To Do lists                           |
-| `get-task-lists-organized`      | Hierarchical view grouped by category          |
-| `create-task-list`              | Create a new list                              |
-| `update-task-list`              | Rename a list                                  |
-| `delete-task-list`              | Delete a list and its tasks                    |
-| `get-tasks`                     | Get tasks from a list (with OData filter/sort) |
-| `create-task`                   | Create a task                                  |
-| `update-task`                   | Update a task                                  |
-| `delete-task`                   | Delete a task                                  |
-| `get-checklist-items`           | Get subtasks for a task                        |
-| `create-checklist-item`         | Add a subtask                                  |
-| `update-checklist-item`         | Update a subtask                               |
-| `delete-checklist-item`         | Delete a subtask                               |
-| `archive-completed-tasks`       | Move old completed tasks to an archive list    |
-| `create-github-issue-from-task` | Manually create a GitHub issue from a task     |
-| `sync-github-issues-to-todo`    | Bulk-sync closed issues → completed tasks      |
-| `get-github-issue-status`       | Check the GitHub issue linked to a task        |
-| `test-graph-api-exploration`    | Explore Graph API properties (dev tool)        |
+### Authentication
+
+| Tool          | Description                                         |
+| ------------- | --------------------------------------------------- |
+| `auth-status` | Show current authentication status and token expiry |
+
+### Task List Management
+
+| Tool                       | Description                           |
+| -------------------------- | ------------------------------------- |
+| `get-task-lists`           | List all To Do lists                  |
+| `get-task-lists-organized` | Hierarchical view grouped by category |
+| `create-task-list`         | Create a new list                     |
+| `update-task-list`         | Rename a list                         |
+| `delete-task-list`         | Delete a list and all its tasks       |
+
+### Task Management
+
+| Tool          | Description                                    |
+| ------------- | ---------------------------------------------- |
+| `get-tasks`   | Get tasks from a list (with OData filter/sort) |
+| `create-task` | Create a task with title, due date, importance |
+| `update-task` | Update any task property                       |
+| `delete-task` | Delete a task and its checklist items          |
+
+### Checklist Item Management (Subtasks)
+
+| Tool                    | Description                       |
+| ----------------------- | --------------------------------- |
+| `get-checklist-items`   | Get subtasks for a task           |
+| `create-checklist-item` | Add a subtask                     |
+| `update-checklist-item` | Update a subtask's text or status |
+| `delete-checklist-item` | Delete a subtask                  |
+
+### Bulk Operations
+
+| Tool                      | Description                                               |
+| ------------------------- | --------------------------------------------------------- |
+| `archive-completed-tasks` | Move completed tasks older than N days to an archive list |
+
+### GitHub Integration
+
+| Tool                            | Description                                      |
+| ------------------------------- | ------------------------------------------------ |
+| `create-github-issue-from-task` | Manually create a GitHub issue from a task       |
+| `sync-github-issues-to-todo`    | Bulk-sync closed GitHub issues → completed tasks |
+| `get-github-issue-status`       | Check the GitHub issue linked to a task          |
+
+### Developer Tools
+
+| Tool                         | Description                             |
+| ---------------------------- | --------------------------------------- |
+| `test-graph-api-exploration` | Explore Graph API properties (dev tool) |
 
 ## Environment Variables
 
