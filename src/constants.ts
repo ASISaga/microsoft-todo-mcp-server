@@ -1,0 +1,8 @@
+/** Base URL for the Microsoft Graph REST API v1.0. */
+export const MS_GRAPH_BASE = "https://graph.microsoft.com/v1.0"
+
+/** Base URL for the GitHub REST API. */
+export const GITHUB_API_BASE = "https://api.github.com"
+
+/** User-Agent header value sent with every outbound HTTP request. */
+export const USER_AGENT = "microsoft-todo-mcp-server/1.0"
