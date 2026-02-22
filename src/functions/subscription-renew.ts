@@ -17,7 +17,7 @@ import { getTokens } from "../token-manager.js"
 const MS_GRAPH_BASE = "https://graph.microsoft.com/v1.0"
 const USER_AGENT = "microsoft-todo-mcp-server/1.0"
 
-/** Max expiry for todoTask subscriptions: 4 230 minutes */
+/** Maximum subscription expiry for Microsoft To Do tasks: 4 230 min ≈ 2.9 days. */
 const SUBSCRIPTION_EXPIRY_MINUTES = 4230
 
 async function renewSubscriptions(_timer: Timer, context: InvocationContext): Promise<void> {

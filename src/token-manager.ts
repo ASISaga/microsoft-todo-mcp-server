@@ -2,6 +2,9 @@
 // Token management for Azure Functions – reads from environment variables,
 // refreshes via OAuth 2.0 refresh-token grant, and caches in-memory.
 
+/** Buffer before token expiry to trigger proactive refresh (5 minutes). */
+const TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000
+
 interface TokenData {
   accessToken: string
   refreshToken: string
@@ -23,7 +26,7 @@ let cachedToken: TokenData | null = null
  */
 export async function getTokens(): Promise<TokenData | null> {
   // 1. Return cached token if still valid (with 5-min buffer)
-  if (cachedToken && Date.now() < cachedToken.expiresAt - 5 * 60 * 1000) {
+  if (cachedToken && Date.now() < cachedToken.expiresAt - TOKEN_REFRESH_BUFFER_MS) {
     return cachedToken
   }
 
@@ -32,7 +35,7 @@ export async function getTokens(): Promise<TokenData | null> {
   const envRefreshToken = process.env.MS_TODO_REFRESH_TOKEN
   const envExpiresAt = process.env.MS_TODO_TOKEN_EXPIRES_AT ? parseInt(process.env.MS_TODO_TOKEN_EXPIRES_AT, 10) : 0
 
-  if (envAccessToken && envExpiresAt && Date.now() < envExpiresAt - 5 * 60 * 1000) {
+  if (envAccessToken && envExpiresAt && Date.now() < envExpiresAt - TOKEN_REFRESH_BUFFER_MS) {
     cachedToken = {
       accessToken: envAccessToken,
       refreshToken: envRefreshToken || "",
@@ -85,7 +88,7 @@ async function refreshAccessToken(refreshToken: string): Promise<TokenData | nul
     }
 
     const data = await response.json()
-    const expiresAt = Date.now() + (data.expires_in || 3600) * 1000 - 5 * 60 * 1000
+    const expiresAt = Date.now() + (data.expires_in || 3600) * 1000 - TOKEN_REFRESH_BUFFER_MS
 
     cachedToken = {
       accessToken: data.access_token,

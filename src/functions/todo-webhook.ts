@@ -34,6 +34,16 @@ const USER_AGENT = "microsoft-todo-mcp-server/1.0"
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+/**
+ * Matches a GitHub repository reference in the form #owner/repo embedded in text.
+ * Owner: starts/ends with alphanumeric, may contain hyphens.
+ * Repo: starts with alphanumeric or underscore; may contain alphanumeric, hyphens,
+ *       underscores, and dots.
+ * The hashtag must be followed by whitespace, end-of-string, or a non-path character.
+ */
+const GITHUB_REPO_HASHTAG_PATTERN =
+  /#([a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?\/[a-zA-Z0-9_][a-zA-Z0-9_.-]*)(?:\s|$|[^\w/.-])/
+
 async function graphRequest<T>(url: string, token: string, method = "GET", body?: unknown): Promise<T | null> {
   const res = await fetch(url, {
     method,
@@ -78,7 +88,7 @@ async function githubRequest<T>(url: string, token: string, method = "GET", body
  * Format: #owner/repo preceded by start-of-string or whitespace.
  */
 function extractGitHubRepo(text: string): { owner: string; repo: string } | null {
-  const match = text.match(/#([a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?\/[a-zA-Z0-9_][a-zA-Z0-9_.-]*)(?:\s|$|[^\w/.-])/)
+  const match = text.match(GITHUB_REPO_HASHTAG_PATTERN)
   if (match) {
     const [owner, repo] = match[1].split("/")
     if (owner && repo) return { owner, repo }
@@ -139,8 +149,8 @@ async function processNotification(notification: GraphNotification, context: Inv
 
   const bodyContent = task.body?.content ?? ""
 
-  // Skip if a GitHub issue link already exists
-  if (bodyContent.includes("github.com") && bodyContent.includes("/issues/")) {
+  // Skip if a GitHub issue link already exists (anchored to https://github.com/ to prevent bypass)
+  if (/https:\/\/github\.com\/[^/]+\/[^/]+\/issues\/\d+/.test(bodyContent)) {
     context.log(`Task "${task.title}" already has a GitHub issue link`)
     return
   }

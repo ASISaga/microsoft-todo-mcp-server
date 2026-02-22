@@ -45,8 +45,8 @@ export function createMockServerResponse(): {
   const respHeaders: Record<string, string> = {}
   const chunks: Buffer[] = []
 
-  let resolve!: (r: ResponseResult) => void
-  let reject!: (e: unknown) => void
+  let resolve: (r: ResponseResult) => void = () => {}
+  let reject: (e: unknown) => void = () => {}
   const result = new Promise<ResponseResult>((res, rej) => {
     resolve = res
     reject = rej
