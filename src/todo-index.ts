@@ -1,16 +1,10 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod"
-import { readFileSync, writeFileSync, existsSync } from "fs"
-import { join } from "path"
 import dotenv from "dotenv"
-import { tokenManager } from "./token-manager.js"
+import { getTokens } from "./token-manager.js"
 
 // Load environment variables
 dotenv.config()
-
-// Log the current working directory
-console.error("Current working directory:", process.cwd())
 
 // Microsoft Graph API endpoints
 const MS_GRAPH_BASE = "https://graph.microsoft.com/v1.0"
@@ -196,29 +190,16 @@ function extractGitHubIssueLink(
 // Authentication helper using delegated flow with token manager
 async function getAccessToken(): Promise<string | null> {
   try {
-    console.error("getAccessToken called")
-
-    // Use the token manager to get tokens (handles all sources and refresh)
-    const tokens = await tokenManager.getTokens()
-
+    const tokens = await getTokens()
     if (tokens) {
-      console.error(`Successfully retrieved valid token`)
       return tokens.accessToken
     }
-
     console.error("No valid tokens available")
     return null
   } catch (error) {
     console.error("Error getting access token:", error)
     return null
   }
-}
-
-// Server configuration type
-interface ServerConfig {
-  accessToken?: string
-  refreshToken?: string
-  tokenFilePath?: string
 }
 
 // Function to check if the account is a personal Microsoft account
@@ -282,14 +263,14 @@ server.tool(
   "Check if you're authenticated with Microsoft Graph API. Shows current token status and expiration time, and indicates if the token needs to be refreshed.",
   {},
   async () => {
-    const tokens = await tokenManager.getTokens()
+    const tokens = await getTokens()
 
     if (!tokens) {
       return {
         content: [
           {
             type: "text",
-            text: "Not authenticated. Please run 'npx microsoft-todo-mcp-server setup' to authenticate with Microsoft.",
+            text: "Not authenticated. Please configure MS_TODO_ACCESS_TOKEN and MS_TODO_REFRESH_TOKEN environment variables.",
           },
         ],
       }
@@ -2359,25 +2340,21 @@ server.tool(
   },
 )
 
-// Main function to start the server
-export async function startServer(config?: ServerConfig): Promise<void> {
+// Main function to start the server (connects a transport to the singleton server instance)
+export async function startServer(): Promise<void> {
   try {
-    // Note: Token management is now handled by the TokenManager class
-    // Config options are kept for backward compatibility but not used
-
-    // Check if using a personal Microsoft account and show warning if needed
-    await isPersonalMicrosoftAccount()
-
-    // Start the server
+    const { StdioServerTransport } = await import("@modelcontextprotocol/sdk/server/stdio.js")
     const transport = new StdioServerTransport()
     await server.connect(transport)
-
-    console.error("Server started and listening")
+    console.error("MCP server started on stdio")
   } catch (error) {
     console.error("Error starting server:", error)
     throw error
   }
 }
+
+// Export the configured server instance for use with alternative transports (e.g. Azure Functions HTTP)
+export { server as mcpServer }
 
 // Main entry point when executed directly
 if (import.meta.url === `file://${process.argv[1]}`) {

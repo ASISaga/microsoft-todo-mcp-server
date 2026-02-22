@@ -2,22 +2,23 @@ import { defineConfig } from 'tsup'
 
 export default defineConfig({
   entry: [
+    'src/index.ts',
+    'src/functions/mcp.ts',
+    'src/functions/github-webhook.ts',
+    'src/functions/todo-webhook.ts',
+    'src/functions/subscription-renew.ts',
     'src/todo-index.ts',
-    'src/cli.ts',
-    'src/create-mcp-config.ts',
-    'src/auth-server.ts',
-    'src/setup.ts',
-    'src/token-manager.ts'
+    'src/token-manager.ts',
+    'src/azure-http-adapter.ts',
   ],
   outDir: 'dist',
   format: ['esm'],
-  target: 'node16',
+  target: 'node20',
   shims: true,
   clean: true,
   splitting: false,
   sourcemap: true,
   dts: true,
-  external: ['dotenv'],
   esbuildOptions(options) {
     options.platform = 'node'
   }

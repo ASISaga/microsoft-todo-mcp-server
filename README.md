@@ -1,367 +1,219 @@
-# Microsoft To Do MCP
+# Microsoft To Do MCP Server on Azure Functions
 
-[![CI](https://github.com/jordanburke/microsoft-todo-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/jordanburke/microsoft-todo-mcp-server/actions/workflows/ci.yml)
-[![npm version](https://badge.fury.io/js/microsoft-todo-mcp-server.svg)](https://www.npmjs.com/package/microsoft-todo-mcp-server)
+[![CI](https://github.com/ASISaga/microsoft-todo-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/ASISaga/microsoft-todo-mcp-server/actions/workflows/ci.yml)
+[![Deploy](https://github.com/ASISaga/microsoft-todo-mcp-server/actions/workflows/deploy.yml/badge.svg)](https://github.com/ASISaga/microsoft-todo-mcp-server/actions/workflows/deploy.yml)
 
-A Model Context Protocol (MCP) server that enables AI assistants like Claude and Cursor to interact with Microsoft To Do via the Microsoft Graph API. This service provides comprehensive task management capabilities through a secure OAuth 2.0 authentication flow, and includes **GitHub integration** that automatically creates GitHub issues from tasks and syncs issue statuses back to Microsoft Todo.
-
-## Features
-
-- **15 MCP Tools**: Complete task management functionality including lists, tasks, checklist items, and organization features
-- **GitHub Integration**: Automatically create GitHub issues from tasks and sync closed issues back to Todo
-- **Seamless Authentication**: Automatic token refresh with zero manual intervention
-- **OAuth 2.0 Authentication**: Secure authentication with automatic token refresh
-- **Microsoft Graph API Integration**: Direct integration with Microsoft's official API
-- **Multi-tenant Support**: Works with personal, work, and school Microsoft accounts
-- **TypeScript**: Fully typed for reliability and developer experience
-- **ESM Modules**: Modern JavaScript module system
-
-## Prerequisites
-
-- Node.js 16 or higher (tested with Node.js 18.x, 20.x, and 22.x)
-- pnpm package manager
-- A Microsoft account (personal, work, or school)
-- Azure App Registration (see setup below)
-
-## Installation
-
-### Option 1: Global Installation (Recommended)
-
-```bash
-# Install globally using npm
-npm install -g microsoft-todo-mcp-server
-
-# Or using pnpm
-pnpm install -g microsoft-todo-mcp-server
-
-# Or run directly with npx (no installation)
-npx microsoft-todo-mcp-server
-```
-
-The package provides three command aliases:
-
-- `microsoft-todo-mcp-server` - Full package name
-- `mstodo` - Short alias for the MCP server
-- `mstodo-config` - Configuration helper tool
-
-### Option 2: Clone and Run Locally
-
-```bash
-git clone https://github.com/jordanburke/microsoft-todo-mcp-server.git
-cd microsoft-todo-mcp-server
-pnpm install
-pnpm run build
-```
-
-## Azure App Registration
-
-1. Go to the [Azure Portal](https://portal.azure.com)
-2. Navigate to "App registrations" and create a new registration
-3. Name your application (e.g., "To Do MCP")
-4. For "Supported account types", select one of the following based on your needs:
-   - **Accounts in this organizational directory only (Single tenant)** - For use within a single organization
-   - **Accounts in any organizational directory (Any Azure AD directory - Multitenant)** - For use across multiple organizations
-   - **Accounts in any organizational directory and personal Microsoft accounts** - For both work accounts and personal accounts
-5. Set the Redirect URI to `http://localhost:3000/callback`
-6. After creating the app, go to "Certificates & secrets" and create a new client secret
-7. Go to "API permissions" and add the following permissions:
-   - Microsoft Graph > Delegated permissions:
-     - Tasks.Read
-     - Tasks.ReadWrite
-     - User.Read
-8. Click "Grant admin consent" for these permissions
-
-## Configuration
-
-### Environment Setup
-
-Create a `.env` file in the project root (required for authentication):
-
-```env
-CLIENT_ID=your_client_id
-CLIENT_SECRET=your_client_secret
-TENANT_ID=your_tenant_setting
-REDIRECT_URI=http://localhost:3000/callback
-
-# Optional: GitHub Personal Access Token for GitHub integration
-GITHUB_TOKEN=your_github_personal_access_token
-```
-
-### TENANT_ID Options
-
-- `organizations` - For multi-tenant organizational accounts (default if not specified)
-- `consumers` - For personal Microsoft accounts only
-- `common` - For both organizational and personal accounts
-- `your-specific-tenant-id` - For single-tenant configurations
-
-**Examples:**
-
-```env
-# For multi-tenant organizational accounts (default)
-TENANT_ID=organizations
-
-# For personal Microsoft accounts
-TENANT_ID=consumers
-
-# For both organizational and personal accounts
-TENANT_ID=common
-
-# For a specific organization tenant
-TENANT_ID=00000000-0000-0000-0000-000000000000
-```
-
-### Token Storage
-
-The server stores authentication tokens in `tokens.json` with automatic refresh 5 minutes before expiration. You can override the token file location:
-
-```bash
-# Using environment variable
-export MSTODO_TOKEN_FILE=/path/to/custom/tokens.json
-
-# Or pass tokens directly
-export MS_TODO_ACCESS_TOKEN=your_access_token
-export MS_TODO_REFRESH_TOKEN=your_refresh_token
-```
-
-## Usage
-
-### Complete Setup Workflow
-
-#### Step 1: Authenticate with Microsoft
-
-```bash
-# If installed globally
-git clone https://github.com/jordanburke/microsoft-todo-mcp-server.git
-cd microsoft-todo-mcp-server
-pnpm install
-pnpm run auth
-
-# Or if running locally
-pnpm run auth
-```
-
-This opens a browser window for Microsoft authentication and creates a `tokens.json` file.
-
-#### Step 2: Create MCP Configuration
-
-```bash
-# Generate MCP configuration file
-pnpm run create-config
-
-# Or use the global helper (if installed globally)
-mstodo-config
-```
-
-This creates an `mcp.json` file with your authentication tokens.
-
-#### Step 3: Configure Your AI Assistant
-
-**For Claude Desktop:**
-
-Add to your configuration file:
-
-- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
-- **Linux**: `~/.config/Claude/claude_desktop_config.json`
-
-```json
-{
-  "mcpServers": {
-    "microsoftTodo": {
-      "command": "npx",
-      "args": ["--yes", "microsoft-todo-mcp-server"],
-      "env": {
-        "MS_TODO_ACCESS_TOKEN": "your_access_token",
-        "MS_TODO_REFRESH_TOKEN": "your_refresh_token",
-        "GITHUB_TOKEN": "your_github_personal_access_token"
-      }
-    }
-  }
-}
-```
-
-**For Cursor:**
-
-```bash
-# Copy to Cursor's global configuration
-cp mcp.json ~/.cursor/mcp-servers.json
-```
-
-### Available Scripts
-
-```bash
-# Development & Building
-pnpm run build        # Build TypeScript to JavaScript
-pnpm run dev          # Build and run CLI in one command
-
-# Running the Server
-pnpm start            # Run MCP server directly
-pnpm run cli          # Run MCP server via CLI wrapper
-npx microsoft-todo-mcp-server  # Run globally installed version
-
-# Authentication & Configuration
-pnpm run auth         # Start OAuth authentication server
-pnpm run create-config # Generate mcp.json from tokens.json
-
-# Code Quality
-pnpm run format       # Format code with Prettier
-pnpm run format:check # Check code formatting
-pnpm run lint         # Run linting checks
-pnpm run typecheck    # TypeScript type checking
-```
-
-## MCP Tools
-
-The server provides 13 tools for comprehensive Microsoft To Do management:
-
-### Authentication
-
-- **`auth-status`** - Check authentication status, token expiration, and account type
-
-### Task Lists (Top-level Containers)
-
-- **`get-task-lists`** - Retrieve all task lists with metadata (default, shared, etc.)
-- **`create-task-list`** - Create a new task list
-- **`update-task-list`** - Rename an existing task list
-- **`delete-task-list`** - Delete a task list and all its contents
-
-### Tasks (Main Todo Items)
-
-- **`get-tasks`** - Get tasks from a list with filtering, sorting, and pagination
-  - Supports OData query parameters: `$filter`, `$select`, `$orderby`, `$top`, `$skip`, `$count`
-- **`create-task`** - Create a new task with full property support
-  - Title, description, due date, start date, importance, reminders, status, categories
-- **`update-task`** - Update any task properties
-- **`delete-task`** - Delete a task and all its checklist items
-
-### Checklist Items (Subtasks)
-
-- **`get-checklist-items`** - Get subtasks for a specific task
-- **`create-checklist-item`** - Add a new subtask to a task
-- **`update-checklist-item`** - Update subtask text or completion status
-- **`delete-checklist-item`** - Remove a specific subtask
-
-### GitHub Integration
-
-These tools connect Microsoft Todo tasks to GitHub issues. Set the `GITHUB_TOKEN` environment variable with a GitHub Personal Access Token. Use `public_repo` scope for public repositories, or `repo` scope if you also need to create issues in private repositories.
-
-- **`create-github-issue-from-task`** - Creates a GitHub issue from a task.
-  - The task title or body must contain a repository hashtag in the format **`#owner/repo`** (e.g. `Fix login bug #myorg/backend`).
-  - The GitHub issue URL is stored back in the task body so it can be synced later.
-- **`sync-github-issues-to-todo`** - Scans tasks for linked GitHub issues and **marks tasks as completed** when their corresponding GitHub issues are closed.
-  - Optional `listId` parameter; if omitted, all task lists are scanned.
-- **`get-github-issue-status`** - Shows the current open/closed status of the GitHub issue linked to a specific task.
-
-#### Workflow Example
-
-1. Create a task with a repo hashtag: `"Fix login bug #myorg/backend"`
-2. Call `create-github-issue-from-task` → a GitHub issue is created and the URL is stored in the task body.
-3. When the GitHub issue is closed, call `sync-github-issues-to-todo` → the task is automatically marked as **completed**.
+A **Model Context Protocol (MCP) server** that enables AI assistants (Claude, Cursor, etc.) to interact with **Microsoft To Do** via the Microsoft Graph API. Deployed exclusively on **Azure Functions Consumption plan** (scales to zero when idle) with **event-driven webhooks** for real-time two-way sync between Microsoft To Do and GitHub Issues.
 
 ## Architecture
 
-### Project Structure
-
-- **MCP Server** (`src/todo-index.ts`) - Core server implementing the MCP protocol
-- **CLI Wrapper** (`src/cli.ts`) - Executable entry point with token management
-- **Auth Server** (`src/auth-server.ts`) - Express server for OAuth 2.0 flow
-- **Config Generator** (`src/create-mcp-config.ts`) - Helper to create MCP configurations
-
-### Technical Details
-
-- **Microsoft Graph API**: Uses v1.0 endpoints
-- **Authentication**: MSAL (Microsoft Authentication Library) with PKCE flow
-- **Token Management**: Automatic refresh 5 minutes before expiration
-- **Build System**: tsup for fast TypeScript compilation
-- **Module System**: ESM (ECMAScript modules)
-
-## Limitations & Known Issues
-
-### Personal Microsoft Accounts
-
-- **MailboxNotEnabledForRESTAPI Error**: Personal Microsoft accounts (outlook.com, hotmail.com, live.com) have limited access to the To Do API through Microsoft Graph
-- This is a Microsoft service limitation, not an issue with this application
-- Work/school accounts have full API access
-
-### API Limitations
-
-- Rate limits apply according to Microsoft's policies
-- Some features may be unavailable for personal accounts
-- Shared lists have limited functionality
-
-## Troubleshooting
-
-### Authentication Issues
-
-**Token acquisition failures**
-
-- Verify `CLIENT_ID`, `CLIENT_SECRET`, and `TENANT_ID` in your `.env` file
-- Ensure redirect URI matches exactly: `http://localhost:3000/callback`
-- Check Azure App permissions are granted with admin consent
-
-**Permission issues**
-
-- Ensure all required Graph API permissions are added and consented
-- For organizational accounts, admin consent may be required
-
-### Account Type Configuration
-
-**Work/School Accounts**
-
-```env
-TENANT_ID=organizations  # Multi-tenant
-# Or use your specific tenant ID
+```
+AI Assistant (Claude/Cursor)
+        │  MCP over HTTP
+        ▼
+┌─────────────────────────────┐
+│   Azure Functions (HTTP)    │
+│                             │
+│  /api/mcp                   │  ◄── MCP Streamable HTTP endpoint
+│  /api/github-webhook        │  ◄── GitHub issue events (opened/closed)
+│  /api/todo-webhook          │  ◄── Microsoft Graph change notifications
+│  subscription-renew (timer) │      Renews Graph subscriptions every 12 h
+└─────────────────────────────┘
+        │                  │
+        ▼                  ▼
+ Microsoft Graph       GitHub API
+ (To Do tasks)         (Issues)
 ```
 
-**Personal Accounts**
+**Scale-to-zero**: The Consumption plan bills only for actual invocations. When idle, no compute runs.
 
-```env
-TENANT_ID=consumers  # Personal only
-# Or TENANT_ID=common for both types
-```
+## Features
 
-### Debugging
+- **MCP Tools** (15 tools): full task/list/checklist management via Graph API
+- **GitHub → To Do**: when a GitHub issue is opened, a linked To Do task is created; when closed, the task is marked complete
+- **To Do → GitHub**: when a task is created with a `#owner/repo` hashtag, a GitHub issue is opened automatically
+- **Automatic token refresh**: OAuth tokens are refreshed transparently using stored refresh tokens
+- **TypeScript + ESM**: fully typed codebase built with `tsup`
 
-**Check authentication status:**
+## Prerequisites
+
+| Requirement                   | Notes                                                              |
+| ----------------------------- | ------------------------------------------------------------------ |
+| Azure subscription            | Free tier works                                                    |
+| Azure App Registration        | Delegated `Tasks.Read`, `Tasks.ReadWrite`, `User.Read` permissions |
+| GitHub PAT                    | `repo` scope for issue creation                                    |
+| Node.js ≥ 18                  | For local development                                              |
+| pnpm                          | `npm install -g pnpm`                                              |
+| Azure Functions Core Tools v4 | `npm install -g azure-functions-core-tools@4`                      |
+
+## Quick Start
+
+### 1. Azure App Registration
+
+1. Go to [portal.azure.com](https://portal.azure.com) → **App registrations** → **New registration**
+2. Set redirect URI to `http://localhost:3000/callback` (for initial token retrieval)
+3. Under **API permissions**, add Microsoft Graph delegated: `Tasks.Read`, `Tasks.ReadWrite`, `User.Read`, `offline_access`
+4. Create a **Client secret** under **Certificates & secrets**
+
+### 2. Get OAuth Tokens
+
+Run the one-time auth flow locally to obtain a refresh token:
 
 ```bash
-# Using the MCP tool
-# In your AI assistant: "Check auth status"
+git clone https://github.com/ASISaga/microsoft-todo-mcp-server.git
+cd microsoft-todo-mcp-server
 
-# Or examine tokens directly
-cat tokens.json | jq '.expiresAt'
+# Set credentials
+export CLIENT_ID=<your-client-id>
+export CLIENT_SECRET=<your-client-secret>
+export TENANT_ID=organizations   # or your tenant ID
+export REDIRECT_URI=http://localhost:3000/callback
 
-# Convert timestamp to readable date
-date -d @$(($(cat tokens.json | jq -r '.expiresAt') / 1000))
+# Install and start a lightweight auth server (or use any OAuth 2.0 tool)
+# Exchange the auth code for tokens, then note the refresh_token value.
 ```
 
-**Enable verbose logging:**
+Store the refresh token securely – you will reference it in the Function App settings.
+
+### 3. Deploy Infrastructure
 
 ```bash
-# The server logs to stderr for debugging
-mstodo 2> debug.log
+# Login to Azure
+az login
+
+# Create a resource group
+az group create --name rg-mstodo-mcp --location eastus
+
+# Deploy Bicep (creates Function App, Storage, App Insights – Consumption plan)
+az deployment group create \
+  --resource-group rg-mstodo-mcp \
+  --template-file infra/main.bicep \
+  --parameters \
+      appName=mstodo-mcp \
+      clientId=<CLIENT_ID> \
+      clientSecret=<CLIENT_SECRET> \
+      githubToken=<GITHUB_PAT> \
+      githubWebhookSecret=<random-secret> \
+      graphSubscriptionSecret=<random-secret>
 ```
 
-## Contributing
+### 4. Configure GitHub CI/CD
 
-Contributions are welcome! Please:
+Add the following secrets to your GitHub repository (**Settings → Secrets and variables → Actions**):
 
-1. Fork the repository
-2. Create a feature branch
-3. Run `pnpm run lint` and `pnpm run typecheck` before submitting
-4. Submit a pull request
+| Secret                      | Value                                           |
+| --------------------------- | ----------------------------------------------- |
+| `AZURE_CLIENT_ID`           | Service principal client ID for deployment      |
+| `AZURE_TENANT_ID`           | Azure tenant ID                                 |
+| `AZURE_SUBSCRIPTION_ID`     | Azure subscription ID                           |
+| `AZURE_RESOURCE_GROUP`      | Resource group name                             |
+| `AZURE_FUNCTIONAPP_NAME`    | Function app name (e.g. `mstodo-mcp`)           |
+| `MS_TODO_CLIENT_ID`         | App registration client ID                      |
+| `MS_TODO_CLIENT_SECRET`     | App registration client secret                  |
+| `MS_TODO_TENANT_ID`         | Tenant ID                                       |
+| `GH_INTEGRATION_TOKEN`      | GitHub PAT for To Do → GitHub issue creation    |
+| `GITHUB_WEBHOOK_SECRET`     | Shared secret for webhook validation            |
+| `GRAPH_SUBSCRIPTION_SECRET` | Shared secret for Graph notification validation |
+| `MS_TODO_LIST_ID`           | To Do list ID for GitHub → task creation        |
+
+Push to `main` to trigger an automatic deployment.
+
+### 5. Configure Webhooks
+
+#### GitHub Webhook
+
+In your GitHub repository → **Settings → Webhooks → Add webhook**:
+
+- **Payload URL**: `https://<app>.azurewebsites.net/api/github-webhook`
+- **Content type**: `application/json`
+- **Secret**: value of `GITHUB_WEBHOOK_SECRET`
+- **Events**: Issues (✅)
+
+#### Microsoft Graph Change Notification
+
+Create a subscription once (replace `<notificationUrl>` and `<listId>`):
+
+```http
+POST https://graph.microsoft.com/v1.0/subscriptions
+Authorization: Bearer <access_token>
+Content-Type: application/json
+
+{
+  "changeType": "created,updated",
+  "notificationUrl": "https://<app>.azurewebsites.net/api/todo-webhook",
+  "resource": "me/todo/lists/<listId>/tasks",
+  "expirationDateTime": "<now + 4230 minutes>",
+  "clientState": "<GRAPH_SUBSCRIPTION_SECRET value>"
+}
+```
+
+Store the returned subscription `id` in the **GRAPH_SUBSCRIPTION_IDS** App Setting (comma-separated for multiple lists) so the timer function can renew it automatically.
+
+## Local Development
+
+```bash
+# Copy and fill in the example settings
+cp local.settings.json.example local.settings.json
+
+pnpm install
+pnpm run build
+
+# Start the Azure Functions runtime locally
+func start
+```
+
+The functions are available at `http://localhost:7071/api/`.
+
+## MCP Tools Reference
+
+| Tool                            | Description                                    |
+| ------------------------------- | ---------------------------------------------- |
+| `auth-status`                   | Show current authentication status             |
+| `get-task-lists`                | List all To Do lists                           |
+| `get-task-lists-organized`      | Hierarchical view grouped by category          |
+| `create-task-list`              | Create a new list                              |
+| `update-task-list`              | Rename a list                                  |
+| `delete-task-list`              | Delete a list and its tasks                    |
+| `get-tasks`                     | Get tasks from a list (with OData filter/sort) |
+| `create-task`                   | Create a task                                  |
+| `update-task`                   | Update a task                                  |
+| `delete-task`                   | Delete a task                                  |
+| `get-checklist-items`           | Get subtasks for a task                        |
+| `create-checklist-item`         | Add a subtask                                  |
+| `update-checklist-item`         | Update a subtask                               |
+| `delete-checklist-item`         | Delete a subtask                               |
+| `archive-completed-tasks`       | Move old completed tasks to an archive list    |
+| `create-github-issue-from-task` | Manually create a GitHub issue from a task     |
+| `sync-github-issues-to-todo`    | Bulk-sync closed issues → completed tasks      |
+| `get-github-issue-status`       | Check the GitHub issue linked to a task        |
+| `test-graph-api-exploration`    | Explore Graph API properties (dev tool)        |
+
+## Environment Variables
+
+| Variable                    | Required | Description                                     |
+| --------------------------- | -------- | ----------------------------------------------- |
+| `CLIENT_ID`                 | ✅       | Azure app registration client ID                |
+| `CLIENT_SECRET`             | ✅       | Azure app registration client secret            |
+| `TENANT_ID`                 | ✅       | `organizations`, `consumers`, `common`, or GUID |
+| `MS_TODO_REFRESH_TOKEN`     | ✅       | OAuth refresh token                             |
+| `MS_TODO_ACCESS_TOKEN`      | ⬜       | Current access token (auto-refreshed)           |
+| `MS_TODO_TOKEN_EXPIRES_AT`  | ⬜       | Unix-ms expiry of access token                  |
+| `GITHUB_TOKEN`              | ⬜       | GitHub PAT for issue creation                   |
+| `GITHUB_WEBHOOK_SECRET`     | ⬜       | Validates GitHub webhook payloads               |
+| `GRAPH_SUBSCRIPTION_SECRET` | ⬜       | Validates Graph change notifications            |
+| `GRAPH_SUBSCRIPTION_IDS`    | ⬜       | Comma-separated Graph subscription IDs to renew |
+| `MS_TODO_LIST_ID`           | ⬜       | Default list for GitHub → task creation         |
+
+## Development Commands
+
+```bash
+pnpm run build      # Compile TypeScript (tsup)
+pnpm run typecheck  # TypeScript type check only
+pnpm run lint       # Prettier format check
+pnpm run format     # Fix formatting
+pnpm run ci         # lint + typecheck + build (used in CI)
+```
 
 ## License
 
-MIT License - See [LICENSE](LICENSE) file for details
-
-## Acknowledgments
-
-- Fork of [@jhirono/todomcp](https://github.com/jhirono/todomcp)
-- Built on the [Model Context Protocol SDK](https://github.com/modelcontextprotocol/sdk)
-- Uses [Microsoft Graph API](https://developer.microsoft.com/en-us/graph)
-
-## Support
-
-- [GitHub Issues](https://github.com/jordanburke/microsoft-todo-mcp-server/issues)
-- [npm Package](https://www.npmjs.com/package/microsoft-todo-mcp-server)
+MIT
