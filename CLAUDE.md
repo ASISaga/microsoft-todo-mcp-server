@@ -8,56 +8,56 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 pnpm install         # Install dependencies
-pnpm run build       # Build with tsup to build/ directory
-pnpm run dev         # Build and run CLI in one command
+pnpm run build       # Build with tsup to dist/ directory
+pnpm run typecheck   # TypeScript type check only
+pnpm run lint        # Check code formatting (Prettier)
+pnpm run format      # Fix code formatting
+pnpm run ci          # lint + typecheck + build (full CI check)
 ```
 
-### Authentication and Setup
+### Local Development (Azure Functions)
 
 ```bash
-pnpm run auth        # Start OAuth authentication server (port 3000)
-pnpm run create-config # Generate mcp.json from tokens.json
-```
-
-### Running the Server
-
-```bash
-pnpm run cli         # Run MCP server via CLI wrapper
-pnpm start           # Run MCP server directly
+cp local.settings.json.example local.settings.json
+# Fill in credentials in local.settings.json
+func start           # Requires Azure Functions Core Tools v4
 ```
 
 ## Architecture Overview
 
-This is a Model Context Protocol (MCP) server that enables AI assistants to interact with Microsoft To Do via the Microsoft Graph API. The codebase follows a modular architecture with four main components:
+This is a **Model Context Protocol (MCP) server** deployed 100% on **Azure Functions** (Consumption plan – scales to zero).
 
-1. **MCP Server** (`src/todo-index.ts`): Core server implementing the MCP protocol with 13 tools for Microsoft To Do operations
-2. **CLI Wrapper** (`src/cli.ts`): Executable entry point that handles token loading from environment or file
-3. **Auth Server** (`src/auth-server.js`): Express server implementing OAuth 2.0 flow with MSAL
-4. **Config Generator** (`src/create-mcp-config.ts`): Utility to create MCP configuration files
+### Entry Points
 
-### Key Architectural Patterns
+- **`src/index.ts`** – Azure Functions entry point; imports all function modules
+- **`src/functions/mcp.ts`** – HTTP trigger for the MCP Streamable HTTP endpoint (`/api/mcp`)
+- **`src/functions/github-webhook.ts`** – HTTP trigger for GitHub issue webhooks (`/api/github-webhook`)
+- **`src/functions/todo-webhook.ts`** – HTTP trigger for Microsoft Graph change notifications (`/api/todo-webhook`)
+- **`src/functions/subscription-renew.ts`** – Timer trigger that renews Graph subscriptions every 12 h
+- **`src/todo-index.ts`** – MCP server with all 19 tools registered (transport-agnostic; exports `mcpServer`)
+- **`src/token-manager.ts`** – Stateless token management: reads env vars, refreshes via OAuth, in-memory cache
+- **`src/azure-http-adapter.ts`** – Adapts Azure Functions `HttpRequest`/`HttpResponseInit` to Node.js `IncomingMessage`/`ServerResponse` for `StreamableHTTPServerTransport`
 
-- **Token Management**: Tokens are stored in `tokens.json` with automatic refresh 5 minutes before expiration
-- **Multi-tenant Support**: Configurable for different Microsoft account types via TENANT_ID
-- **Error Handling**: Special handling for personal Microsoft accounts (MailboxNotEnabledForRESTAPI)
-- **Type Safety**: Strict TypeScript with Zod schemas for parameter validation
+### Infrastructure
 
-### Microsoft Graph API Integration
+- **`infra/main.bicep`** – Bicep template: Function App (Consumption Y1), Storage Account, App Insights, Log Analytics
+- **`infra/main.bicepparam`** – Parameter file for Bicep deployment
+- **`host.json`** – Azure Functions v4 runtime configuration
 
-The server communicates with Microsoft Graph API v1.0:
+### CI/CD
 
-- Base URL: `https://graph.microsoft.com/v1.0`
-- Three-level hierarchy: Lists → Tasks → Checklist Items
-- Supports OData query parameters for filtering and sorting
+- **`.github/workflows/ci.yml`** – Lint + typecheck + build on push/PR
+- **`.github/workflows/deploy.yml`** – Deploy to Azure Functions on push to `main`
 
-### Environment Configuration
+### Webhook Flow
 
-- `MSTODO_TOKEN_FILE`: Custom path for tokens.json (defaults to ./tokens.json)
-- `.env` file required for authentication with CLIENT_ID, CLIENT_SECRET, TENANT_ID, REDIRECT_URI
+- **GitHub → To Do**: GitHub sends `issues` webhook → `/api/github-webhook` → creates/updates To Do tasks
+- **To Do → GitHub**: Microsoft Graph sends change notification → `/api/todo-webhook` → creates GitHub issue if task has `#owner/repo` hashtag
 
-## Important Notes
+### Token Management
 
-- Always run `pnpm run build` after modifying TypeScript files (uses tsup for bundling)
-- The auth server runs on port 3000 by default
-- Tokens are automatically refreshed using the refresh token when needed
-- Personal Microsoft accounts have limited API access compared to work/school accounts
+Tokens are read from **environment variables** (Azure App Settings in production):
+
+- `CLIENT_ID`, `CLIENT_SECRET`, `TENANT_ID` – for OAuth token refresh
+- `MS_TODO_REFRESH_TOKEN` – stored refresh token (set once, auto-renewed)
+- `MS_TODO_ACCESS_TOKEN` + `MS_TODO_TOKEN_EXPIRES_AT` – optional cached access token

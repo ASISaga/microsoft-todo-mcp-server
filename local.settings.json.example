@@ -1,0 +1,23 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "node",
+
+    "CLIENT_ID": "<Azure app registration client ID>",
+    "CLIENT_SECRET": "<Azure app registration client secret>",
+    "TENANT_ID": "organizations",
+
+    "MS_TODO_ACCESS_TOKEN": "<current MS Graph access token (optional – obtained via OAuth flow)>",
+    "MS_TODO_REFRESH_TOKEN": "<OAuth refresh token>",
+    "MS_TODO_TOKEN_EXPIRES_AT": "<Unix milliseconds when access token expires>",
+
+    "GITHUB_TOKEN": "<GitHub personal access token with repo scope>",
+    "GITHUB_WEBHOOK_SECRET": "<random secret configured in GitHub webhook settings>",
+
+    "GRAPH_SUBSCRIPTION_SECRET": "<random secret stored in Graph subscription clientState>",
+    "GRAPH_SUBSCRIPTION_IDS": "<comma-separated Microsoft Graph subscription IDs>",
+
+    "MS_TODO_LIST_ID": "<default Microsoft To Do list ID for GitHub → Todo sync>"
+  }
+}

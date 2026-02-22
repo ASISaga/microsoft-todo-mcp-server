@@ -41,10 +41,12 @@ jobs:
     - name: Check dist files exist
       run: |
         ls -la dist/
+        test -f dist/index.js
         test -f dist/todo-index.js
-        test -f dist/cli.js
-        test -f dist/auth-server.js
-        test -f dist/create-mcp-config.js
+        test -f dist/functions/mcp.js
+        test -f dist/functions/github-webhook.js
+        test -f dist/functions/todo-webhook.js
+        test -f dist/functions/subscription-renew.js
 
   format-check:
     runs-on: ubuntu-latest
