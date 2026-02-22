@@ -16,6 +16,9 @@ console.error("Current working directory:", process.cwd())
 const MS_GRAPH_BASE = "https://graph.microsoft.com/v1.0"
 const USER_AGENT = "microsoft-todo-mcp-server/1.0"
 
+// GitHub API endpoint
+const GITHUB_API_BASE = "https://api.github.com"
+
 // Create server instance
 const server = new McpServer({
   name: "mstodo",
@@ -101,6 +104,93 @@ but API access is restricted for personal accounts.
     console.error("Error making Graph API request:", error)
     return null
   }
+}
+
+// GitHub API helper functions
+
+// Get GitHub personal access token from environment
+function getGitHubToken(): string | null {
+  return process.env.GITHUB_TOKEN || null
+}
+
+interface GitHubIssue {
+  number: number
+  html_url: string
+  title: string
+  state: string
+  body: string | null
+  created_at: string
+  updated_at: string
+  closed_at: string | null
+}
+
+// Helper function for GitHub REST API requests
+async function makeGitHubRequest<T>(url: string, token: string, method = "GET", body?: any): Promise<T | null> {
+  const headers: Record<string, string> = {
+    "User-Agent": USER_AGENT,
+    Accept: "application/vnd.github+json",
+    Authorization: `Bearer ${token}`,
+    "X-GitHub-Api-Version": "2022-11-28",
+    "Content-Type": "application/json",
+  }
+
+  try {
+    const options: RequestInit = { method, headers }
+
+    if (body && (method === "POST" || method === "PATCH")) {
+      options.body = JSON.stringify(body)
+    }
+
+    const response = await fetch(url, options)
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`GitHub API error! status: ${response.status}, body: ${errorText}`)
+    }
+
+    if (response.status === 204) {
+      return null
+    }
+
+    return (await response.json()) as T
+  } catch (error) {
+    console.error("Error making GitHub API request:", error)
+    throw error
+  }
+}
+
+// Extract a GitHub repo reference from a hashtag in text.
+// Supports the format: #owner/repo
+// Owner: starts and ends with alphanumeric, may contain hyphens in between.
+// Repo: starts with alphanumeric or underscore, may contain alphanumeric, hyphens, underscores, and dots.
+function extractGitHubRepo(text: string): { owner: string; repo: string } | null {
+  const match = text.match(/#([a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?\/[a-zA-Z0-9_][a-zA-Z0-9_.-]*)(?:\s|$|[^\w/.-])/)
+  if (match) {
+    const parts = match[1].split("/")
+    if (parts.length === 2 && parts[0] && parts[1]) {
+      return { owner: parts[0], repo: parts[1] }
+    }
+  }
+  return null
+}
+
+// Extract a stored GitHub issue link from task body content.
+// Looks for the marker: "GitHub Issue: https://github.com/owner/repo/issues/N"
+function extractGitHubIssueLink(
+  bodyContent: string,
+): { owner: string; repo: string; issueNumber: number; url: string } | null {
+  const match = bodyContent.match(
+    /GitHub Issue:\s*(https:\/\/github\.com\/([a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?)\/([a-zA-Z0-9_][a-zA-Z0-9_.-]*)\/issues\/(\d+))/,
+  )
+  if (match) {
+    return {
+      url: match[1],
+      owner: match[2],
+      repo: match[3],
+      issueNumber: parseInt(match[4], 10),
+    }
+  }
+  return null
 }
 
 // Authentication helper using delegated flow with token manager
@@ -1905,6 +1995,363 @@ server.tool(
           {
             type: "text",
             text: `Error during Graph API exploration: ${error}`,
+          },
+        ],
+      }
+    }
+  },
+)
+
+// GitHub Integration Tools
+
+server.tool(
+  "create-github-issue-from-task",
+  "Create a GitHub issue from a Microsoft Todo task. The task title or body must contain a GitHub repository hashtag in the format #owner/repo (e.g. #myorg/myrepo). Requires the GITHUB_TOKEN environment variable. The GitHub issue URL is stored back in the task body so it can be synced later.",
+  {
+    listId: z.string().describe("ID of the task list"),
+    taskId: z.string().describe("ID of the task"),
+  },
+  async ({ listId, taskId }) => {
+    try {
+      const githubToken = getGitHubToken()
+      if (!githubToken) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: "GitHub token not configured. Please set the GITHUB_TOKEN environment variable.",
+            },
+          ],
+        }
+      }
+
+      const msToken = await getAccessToken()
+      if (!msToken) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: "Failed to authenticate with Microsoft API",
+            },
+          ],
+        }
+      }
+
+      const task = await makeGraphRequest<Task>(`${MS_GRAPH_BASE}/me/todo/lists/${listId}/tasks/${taskId}`, msToken)
+
+      if (!task) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Failed to retrieve task with ID: ${taskId}`,
+            },
+          ],
+        }
+      }
+
+      const bodyContent = task.body?.content || ""
+
+      // Prevent duplicate issue creation
+      if (extractGitHubIssueLink(bodyContent)) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Task already has a linked GitHub issue. Use sync-github-issues-to-todo to check its status.`,
+            },
+          ],
+        }
+      }
+
+      // Detect #owner/repo in title first, then body
+      const repo = extractGitHubRepo(task.title) || extractGitHubRepo(bodyContent)
+
+      if (!repo) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `No GitHub repository hashtag found in task. Add a hashtag like #owner/repo to the task title or body.`,
+            },
+          ],
+        }
+      }
+
+      const issueBody = bodyContent
+        ? `${bodyContent}\n\n---\n*Created from Microsoft Todo task*`
+        : `*Created from Microsoft Todo task*`
+
+      const issue = await makeGitHubRequest<GitHubIssue>(
+        `${GITHUB_API_BASE}/repos/${repo.owner}/${repo.repo}/issues`,
+        githubToken,
+        "POST",
+        { title: task.title, body: issueBody },
+      )
+
+      if (!issue) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Failed to create GitHub issue`,
+            },
+          ],
+        }
+      }
+
+      // Store the GitHub issue URL back in the task body for future sync
+      const updatedBody = bodyContent
+        ? `${bodyContent}\n\nGitHub Issue: ${issue.html_url}`
+        : `GitHub Issue: ${issue.html_url}`
+
+      await makeGraphRequest<Task>(`${MS_GRAPH_BASE}/me/todo/lists/${listId}/tasks/${taskId}`, msToken, "PATCH", {
+        body: { content: updatedBody, contentType: "text" },
+      })
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: `GitHub issue created successfully!\nIssue: ${issue.html_url}\nTitle: ${issue.title}\nThe task body has been updated with a link to the GitHub issue.`,
+          },
+        ],
+      }
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error creating GitHub issue: ${error}`,
+          },
+        ],
+      }
+    }
+  },
+)
+
+server.tool(
+  "sync-github-issues-to-todo",
+  "Sync GitHub issue statuses back to Microsoft Todo. Scans tasks in the specified list (or all lists if omitted) for linked GitHub issue URLs and marks tasks as completed when their corresponding GitHub issues are closed. Requires the GITHUB_TOKEN environment variable.",
+  {
+    listId: z.string().optional().describe("ID of the task list to sync. If omitted, all task lists are scanned."),
+  },
+  async ({ listId }) => {
+    try {
+      const githubToken = getGitHubToken()
+      if (!githubToken) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: "GitHub token not configured. Please set the GITHUB_TOKEN environment variable.",
+            },
+          ],
+        }
+      }
+
+      const msToken = await getAccessToken()
+      if (!msToken) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: "Failed to authenticate with Microsoft API",
+            },
+          ],
+        }
+      }
+
+      // Determine which lists to scan
+      let listIds: string[] = []
+      if (listId) {
+        listIds = [listId]
+      } else {
+        const listsResponse = await makeGraphRequest<{ value: TaskList[] }>(`${MS_GRAPH_BASE}/me/todo/lists`, msToken)
+        if (!listsResponse || !listsResponse.value) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: "Failed to retrieve task lists",
+              },
+            ],
+          }
+        }
+        listIds = listsResponse.value.map((l) => l.id)
+      }
+
+      let checkedCount = 0
+      let syncedCount = 0
+      const details: string[] = []
+
+      for (const currentListId of listIds) {
+        const tasksResponse = await makeGraphRequest<{ value: Task[] }>(
+          `${MS_GRAPH_BASE}/me/todo/lists/${currentListId}/tasks?$filter=status ne 'completed'`,
+          msToken,
+        )
+        if (!tasksResponse || !tasksResponse.value) continue
+
+        for (const task of tasksResponse.value) {
+          const bodyContent = task.body?.content || ""
+          const issueLink = extractGitHubIssueLink(bodyContent)
+          if (!issueLink) continue
+
+          checkedCount++
+
+          try {
+            const issue = await makeGitHubRequest<GitHubIssue>(
+              `${GITHUB_API_BASE}/repos/${issueLink.owner}/${issueLink.repo}/issues/${issueLink.issueNumber}`,
+              githubToken,
+            )
+
+            if (issue && issue.state === "closed") {
+              await makeGraphRequest<Task>(
+                `${MS_GRAPH_BASE}/me/todo/lists/${currentListId}/tasks/${task.id}`,
+                msToken,
+                "PATCH",
+                { status: "completed" },
+              )
+              syncedCount++
+              details.push(`✓ "${task.title}" marked as completed (GitHub issue #${issueLink.issueNumber} is closed)`)
+            } else if (issue) {
+              details.push(`○ "${task.title}" — GitHub issue #${issueLink.issueNumber} is still open`)
+            }
+          } catch (error) {
+            details.push(`⚠️ Could not check "${task.title}": ${error}`)
+          }
+        }
+      }
+
+      let summary = `GitHub ↔ Todo Sync Complete\n`
+      summary += `Checked ${checkedCount} task(s) with linked GitHub issues.\n`
+      summary += `Marked ${syncedCount} task(s) as completed.\n`
+      if (details.length > 0) {
+        summary += `\nDetails:\n${details.join("\n")}`
+      }
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: summary,
+          },
+        ],
+      }
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error syncing GitHub issues to Todo: ${error}`,
+          },
+        ],
+      }
+    }
+  },
+)
+
+server.tool(
+  "get-github-issue-status",
+  "Get the current status of the GitHub issue linked to a Microsoft Todo task. The task must have a GitHub issue URL in its body (added automatically by create-github-issue-from-task). Requires the GITHUB_TOKEN environment variable.",
+  {
+    listId: z.string().describe("ID of the task list"),
+    taskId: z.string().describe("ID of the task"),
+  },
+  async ({ listId, taskId }) => {
+    try {
+      const githubToken = getGitHubToken()
+      if (!githubToken) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: "GitHub token not configured. Please set the GITHUB_TOKEN environment variable.",
+            },
+          ],
+        }
+      }
+
+      const msToken = await getAccessToken()
+      if (!msToken) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: "Failed to authenticate with Microsoft API",
+            },
+          ],
+        }
+      }
+
+      const task = await makeGraphRequest<Task>(`${MS_GRAPH_BASE}/me/todo/lists/${listId}/tasks/${taskId}`, msToken)
+
+      if (!task) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Failed to retrieve task with ID: ${taskId}`,
+            },
+          ],
+        }
+      }
+
+      const bodyContent = task.body?.content || ""
+      const issueLink = extractGitHubIssueLink(bodyContent)
+
+      if (!issueLink) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `No linked GitHub issue found in task "${task.title}". Use create-github-issue-from-task to link one.`,
+            },
+          ],
+        }
+      }
+
+      const issue = await makeGitHubRequest<GitHubIssue>(
+        `${GITHUB_API_BASE}/repos/${issueLink.owner}/${issueLink.repo}/issues/${issueLink.issueNumber}`,
+        githubToken,
+      )
+
+      if (!issue) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Failed to retrieve GitHub issue`,
+            },
+          ],
+        }
+      }
+
+      const stateEmoji = issue.state === "open" ? "🟢" : "🔴"
+      let result = `GitHub Issue Status\n`
+      result += `Task: "${task.title}"\n`
+      result += `Issue: ${issue.html_url}\n`
+      result += `Status: ${stateEmoji} ${issue.state}\n`
+      result += `Title: ${issue.title}\n`
+      result += `Created: ${new Date(issue.created_at).toLocaleString()}\n`
+      if (issue.closed_at) {
+        result += `Closed: ${new Date(issue.closed_at).toLocaleString()}\n`
+      }
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: result,
+          },
+        ],
+      }
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error getting GitHub issue status: ${error}`,
           },
         ],
       }

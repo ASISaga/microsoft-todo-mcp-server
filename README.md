@@ -3,11 +3,12 @@
 [![CI](https://github.com/jordanburke/microsoft-todo-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/jordanburke/microsoft-todo-mcp-server/actions/workflows/ci.yml)
 [![npm version](https://badge.fury.io/js/microsoft-todo-mcp-server.svg)](https://www.npmjs.com/package/microsoft-todo-mcp-server)
 
-A Model Context Protocol (MCP) server that enables AI assistants like Claude and Cursor to interact with Microsoft To Do via the Microsoft Graph API. This service provides comprehensive task management capabilities through a secure OAuth 2.0 authentication flow.
+A Model Context Protocol (MCP) server that enables AI assistants like Claude and Cursor to interact with Microsoft To Do via the Microsoft Graph API. This service provides comprehensive task management capabilities through a secure OAuth 2.0 authentication flow, and includes **GitHub integration** that automatically creates GitHub issues from tasks and syncs issue statuses back to Microsoft Todo.
 
 ## Features
 
 - **15 MCP Tools**: Complete task management functionality including lists, tasks, checklist items, and organization features
+- **GitHub Integration**: Automatically create GitHub issues from tasks and sync closed issues back to Todo
 - **Seamless Authentication**: Automatic token refresh with zero manual intervention
 - **OAuth 2.0 Authentication**: Secure authentication with automatic token refresh
 - **Microsoft Graph API Integration**: Direct integration with Microsoft's official API
@@ -81,6 +82,9 @@ CLIENT_ID=your_client_id
 CLIENT_SECRET=your_client_secret
 TENANT_ID=your_tenant_setting
 REDIRECT_URI=http://localhost:3000/callback
+
+# Optional: GitHub Personal Access Token for GitHub integration
+GITHUB_TOKEN=your_github_personal_access_token
 ```
 
 ### TENANT_ID Options
@@ -168,7 +172,8 @@ Add to your configuration file:
       "args": ["--yes", "microsoft-todo-mcp-server"],
       "env": {
         "MS_TODO_ACCESS_TOKEN": "your_access_token",
-        "MS_TODO_REFRESH_TOKEN": "your_refresh_token"
+        "MS_TODO_REFRESH_TOKEN": "your_refresh_token",
+        "GITHUB_TOKEN": "your_github_personal_access_token"
       }
     }
   }
@@ -235,6 +240,23 @@ The server provides 13 tools for comprehensive Microsoft To Do management:
 - **`create-checklist-item`** - Add a new subtask to a task
 - **`update-checklist-item`** - Update subtask text or completion status
 - **`delete-checklist-item`** - Remove a specific subtask
+
+### GitHub Integration
+
+These tools connect Microsoft Todo tasks to GitHub issues. Set the `GITHUB_TOKEN` environment variable with a GitHub Personal Access Token. Use `public_repo` scope for public repositories, or `repo` scope if you also need to create issues in private repositories.
+
+- **`create-github-issue-from-task`** - Creates a GitHub issue from a task.
+  - The task title or body must contain a repository hashtag in the format **`#owner/repo`** (e.g. `Fix login bug #myorg/backend`).
+  - The GitHub issue URL is stored back in the task body so it can be synced later.
+- **`sync-github-issues-to-todo`** - Scans tasks for linked GitHub issues and **marks tasks as completed** when their corresponding GitHub issues are closed.
+  - Optional `listId` parameter; if omitted, all task lists are scanned.
+- **`get-github-issue-status`** - Shows the current open/closed status of the GitHub issue linked to a specific task.
+
+#### Workflow Example
+
+1. Create a task with a repo hashtag: `"Fix login bug #myorg/backend"`
+2. Call `create-github-issue-from-task` → a GitHub issue is created and the URL is stored in the task body.
+3. When the GitHub issue is closed, call `sync-github-issues-to-todo` → the task is automatically marked as **completed**.
 
 ## Architecture
 
