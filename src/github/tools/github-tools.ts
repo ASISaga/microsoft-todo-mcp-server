@@ -6,10 +6,10 @@
  */
 import { z } from "zod"
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
-import { GraphClient, MS_GRAPH_BASE } from "../graph/GraphClient.js"
-import type { Task, TaskList } from "../graph/types.js"
-import { GitHubClient, GITHUB_API_BASE, type GitHubIssue } from "../github/GitHubClient.js"
-import { extractGitHubRepo, extractGitHubIssueLink } from "../github/utils.js"
+import { GraphClient, MS_GRAPH_BASE } from "../../todo/graph/GraphClient.js"
+import type { Task, TaskList } from "../../todo/graph/types.js"
+import { GitHubClient, GITHUB_API_BASE, type GitHubIssue } from "../GitHubClient.js"
+import { extractGitHubRepo, extractGitHubIssueLink } from "../utils.js"
 
 export class GitHubTools {
   constructor(

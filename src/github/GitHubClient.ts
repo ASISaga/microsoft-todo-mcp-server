@@ -3,7 +3,7 @@
  *
  * Reads the `GITHUB_TOKEN` environment variable for authentication.
  */
-import { GITHUB_API_BASE, USER_AGENT } from "../constants.js"
+import { GITHUB_API_BASE, USER_AGENT } from "../integrity/constants.js"
 
 export { GITHUB_API_BASE }
 

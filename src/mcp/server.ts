@@ -23,16 +23,16 @@
  */
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import dotenv from "dotenv"
-import { tokenManager } from "./token-manager.js"
-import { authService } from "./auth/AuthService.js"
-import { graphClient } from "./graph/GraphClient.js"
-import { gitHubClient } from "./github/GitHubClient.js"
-import { AuthTools } from "./tools/auth-tools.js"
-import { TaskListTools } from "./tools/task-list-tools.js"
-import { TaskTools } from "./tools/task-tools.js"
-import { ChecklistTools } from "./tools/checklist-tools.js"
-import { UtilityTools } from "./tools/utility-tools.js"
-import { GitHubTools } from "./tools/github-tools.js"
+import { tokenManager } from "../todo/token-manager.js"
+import { authService } from "../todo/auth/AuthService.js"
+import { graphClient } from "../todo/graph/GraphClient.js"
+import { gitHubClient } from "../github/GitHubClient.js"
+import { AuthTools } from "../todo/tools/auth-tools.js"
+import { TaskListTools } from "../todo/tools/task-list-tools.js"
+import { TaskTools } from "../todo/tools/task-tools.js"
+import { ChecklistTools } from "../todo/tools/checklist-tools.js"
+import { UtilityTools } from "../todo/tools/utility-tools.js"
+import { GitHubTools } from "../github/tools/github-tools.js"
 
 // Load environment variables (no-op in Azure Functions where they come from App Settings)
 dotenv.config()

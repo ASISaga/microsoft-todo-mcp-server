@@ -26,9 +26,9 @@
  *   }
  */
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions"
-import { graphClient } from "../graph/GraphClient.js"
-import { gitHubClient, GITHUB_API_BASE } from "../github/GitHubClient.js"
-import { extractGitHubRepo } from "../github/utils.js"
+import { graphClient } from "../../todo/graph/GraphClient.js"
+import { gitHubClient, GITHUB_API_BASE } from "../../github/GitHubClient.js"
+import { extractGitHubRepo } from "../../github/utils.js"
 
 // ── Notification processing ───────────────────────────────────────────────────
 

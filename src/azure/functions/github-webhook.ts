@@ -17,7 +17,7 @@
  */
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions"
 import { createHmac, timingSafeEqual } from "node:crypto"
-import { graphClient } from "../graph/GraphClient.js"
+import { graphClient } from "../../todo/graph/GraphClient.js"
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 

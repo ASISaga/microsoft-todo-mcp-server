@@ -7,7 +7,7 @@
  *  - Special error message for MailboxNotEnabledForRESTAPI (personal accounts)
  *  - Returns `null` on network errors (errors are logged to stderr)
  */
-import { MS_GRAPH_BASE, USER_AGENT } from "../constants.js"
+import { MS_GRAPH_BASE, USER_AGENT } from "../../integrity/constants.js"
 import { AuthService, authService } from "../auth/AuthService.js"
 
 export { MS_GRAPH_BASE }
