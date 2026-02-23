@@ -1,24 +1,34 @@
 /**
- * MCP server orchestrator – creates the McpServer instance, registers all
- * tool groups, and exports the server for use with Azure Functions HTTP
- * transport or the stdio transport (direct execution).
+ * MCP server orchestrator – builds the dependency graph, instantiates all
+ * tool groups, registers them with the McpServer, and exports the server for
+ * use with Azure Functions HTTP transport or the stdio transport.
  *
- * Tool implementations live in `src/tools/`:
- *   auth-tools.ts        – authentication / session status
- *   task-list-tools.ts   – task-list CRUD
- *   task-tools.ts        – task CRUD
- *   checklist-tools.ts   – checklist-item CRUD
- *   utility-tools.ts     – bulk archive + Graph API diagnostics
- *   github-tools.ts      – GitHub ↔ To Do integration
+ * Dependency hierarchy:
+ *   TokenManager
+ *     └─ AuthService
+ *          └─ GraphClient
+ *   GitHubClient
+ *
+ * Tool classes (registered via their `register(server)` method):
+ *   AuthTools          – authentication / session status
+ *   TaskListTools      – task-list CRUD
+ *   TaskTools          – task CRUD
+ *   ChecklistTools     – checklist-item CRUD
+ *   UtilityTools       – bulk archive + Graph API diagnostics
+ *   GitHubTools        – GitHub ↔ To Do integration
  */
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import dotenv from "dotenv"
-import { registerAuthTools } from "./tools/auth-tools.js"
-import { registerTaskListTools } from "./tools/task-list-tools.js"
-import { registerTaskTools } from "./tools/task-tools.js"
-import { registerChecklistTools } from "./tools/checklist-tools.js"
-import { registerUtilityTools } from "./tools/utility-tools.js"
-import { registerGitHubTools } from "./tools/github-tools.js"
+import { tokenManager } from "./token-manager.js"
+import { authService } from "./auth/AuthService.js"
+import { graphClient } from "./graph/GraphClient.js"
+import { gitHubClient } from "./github/GitHubClient.js"
+import { AuthTools } from "./tools/auth-tools.js"
+import { TaskListTools } from "./tools/task-list-tools.js"
+import { TaskTools } from "./tools/task-tools.js"
+import { ChecklistTools } from "./tools/checklist-tools.js"
+import { UtilityTools } from "./tools/utility-tools.js"
+import { GitHubTools } from "./tools/github-tools.js"
 
 // Load environment variables (no-op in Azure Functions where they come from App Settings)
 dotenv.config()
@@ -30,14 +40,14 @@ const server = new McpServer({
   version: "1.0.0",
 })
 
-// ── Register all tools ────────────────────────────────────────────────────────
+// ── Register all tools (constructor injection) ────────────────────────────────
 
-registerAuthTools(server)
-registerTaskListTools(server)
-registerTaskTools(server)
-registerChecklistTools(server)
-registerUtilityTools(server)
-registerGitHubTools(server)
+new AuthTools(tokenManager, authService).register(server)
+new TaskListTools(graphClient).register(server)
+new TaskTools(graphClient).register(server)
+new ChecklistTools(graphClient).register(server)
+new UtilityTools(graphClient, authService).register(server)
+new GitHubTools(graphClient, gitHubClient).register(server)
 
 // ── Exports ───────────────────────────────────────────────────────────────────
 

@@ -3,35 +3,43 @@
  *
  * Features:
  *  - Automatic `Authorization`, `Accept`, `Content-Type`, and `User-Agent` headers
- *  - 401 auto-retry with a fresh token from AuthService
+ *  - Token acquisition and 401 auto-retry handled internally via AuthService
  *  - Special error message for MailboxNotEnabledForRESTAPI (personal accounts)
  *  - Returns `null` on network errors (errors are logged to stderr)
  */
 import { MS_GRAPH_BASE, USER_AGENT } from "../constants.js"
-import { getAccessToken } from "../auth/AuthService.js"
+import { AuthService, authService } from "../auth/AuthService.js"
 
 export { MS_GRAPH_BASE }
 
 export class GraphClient {
+  constructor(private readonly authService: AuthService) {}
+
   /**
    * Perform an authenticated Graph API request.
+   * Acquires a token from AuthService automatically and retries once on 401.
    *
    * @param url    Full URL (use `MS_GRAPH_BASE` + path).
-   * @param token  Bearer access token.
    * @param method HTTP method (default: `"GET"`).
    * @param body   Request body for POST / PATCH requests.
    * @returns      Parsed JSON response, or `null` on error / 204 No Content.
    */
-  async request<T>(url: string, token: string, method = "GET", body?: unknown): Promise<T | null> {
-    const headers: Record<string, string> = {
-      "User-Agent": USER_AGENT,
-      Accept: "application/json",
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
+  async request<T>(url: string, method = "GET", body?: unknown): Promise<T | null> {
+    let token = await this.authService.getAccessToken()
+    if (!token) {
+      console.error("No access token available for Graph API request")
+      return null
     }
 
+    const buildHeaders = (t: string): Record<string, string> => ({
+      "User-Agent": USER_AGENT,
+      Accept: "application/json",
+      Authorization: `Bearer ${t}`,
+      "Content-Type": "application/json",
+    })
+
     try {
-      const options: RequestInit = { method, headers }
+      const options: RequestInit = { method, headers: buildHeaders(token) }
 
       if (body && (method === "POST" || method === "PATCH")) {
         options.body = JSON.stringify(body)
@@ -41,7 +49,7 @@ export class GraphClient {
       console.error(
         `Request options: ${JSON.stringify({
           method,
-          headers: { ...headers, Authorization: "Bearer [REDACTED]" },
+          headers: { ...buildHeaders("[REDACTED]") },
         })}`,
       )
 
@@ -50,10 +58,10 @@ export class GraphClient {
       // On 401, attempt a single token refresh and retry
       if (response.status === 401) {
         console.error("Got 401, attempting token refresh...")
-        const newToken = await getAccessToken()
+        const newToken = await this.authService.getAccessToken()
         if (newToken && newToken !== token) {
-          headers.Authorization = `Bearer ${newToken}`
-          response = await fetch(url, { ...options, headers })
+          token = newToken
+          response = await fetch(url, { ...options, headers: buildHeaders(token) })
         }
       }
 
@@ -94,4 +102,4 @@ Microsoft only allows To Do API access for Microsoft 365 business accounts.
 }
 
 /** Singleton Graph API client used by all MCP tool handlers. */
-export const graphClient = new GraphClient()
+export const graphClient = new GraphClient(authService)
