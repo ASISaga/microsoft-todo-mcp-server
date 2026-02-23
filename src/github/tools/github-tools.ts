@@ -10,6 +10,7 @@ import { GraphClient, MS_GRAPH_BASE } from "../../todo/graph/GraphClient.js"
 import type { Task, TaskList } from "../../todo/graph/types.js"
 import { GitHubClient, GITHUB_API_BASE, type GitHubIssue } from "../GitHubClient.js"
 import { extractGitHubRepo, extractGitHubIssueLink } from "../utils.js"
+import { buildIssueBodyFromTask, appendIssueLink } from "../../integrity/sync.js"
 
 export class GitHubTools {
   constructor(
@@ -69,9 +70,7 @@ export class GitHubTools {
             }
           }
 
-          const issueBody = bodyContent
-            ? `${bodyContent}\n\n---\n*Created from Microsoft Todo task*`
-            : `*Created from Microsoft Todo task*`
+          const issueBody = buildIssueBodyFromTask(bodyContent)
 
           const issue = await this.gitHubClient.request<GitHubIssue>(
             `${GITHUB_API_BASE}/repos/${repo.owner}/${repo.repo}/issues`,
@@ -83,9 +82,7 @@ export class GitHubTools {
             return { content: [{ type: "text", text: `Failed to create GitHub issue` }] }
           }
 
-          const updatedBody = bodyContent
-            ? `${bodyContent}\n\nGitHub Issue: ${issue.html_url}`
-            : `GitHub Issue: ${issue.html_url}`
+          const updatedBody = appendIssueLink(bodyContent, issue.html_url)
 
           await this.graphClient.request<Task>(`${MS_GRAPH_BASE}/me/todo/lists/${listId}/tasks/${taskId}`, "PATCH", {
             body: { content: updatedBody, contentType: "text" },

@@ -18,6 +18,7 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions"
 import { createHmac, timingSafeEqual } from "node:crypto"
 import { graphClient } from "../../todo/graph/GraphClient.js"
+import { githubActionToTodoStatus, buildTaskBodyFromIssue } from "../../integrity/sync.js"
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -88,14 +89,14 @@ async function githubWebhookHandler(request: HttpRequest, context: InvocationCon
   const { action, issue } = payload as { action: string; issue: Record<string, any> }
 
   if (action === "opened") {
-    // Create a new Todo task for this issue
+    // Create a new Todo task for this issue (Plan phase: commitment being made)
     const defaultListId = process.env.MS_TODO_LIST_ID
     if (!defaultListId) {
       context.warn("MS_TODO_LIST_ID not configured – skipping task creation")
       return { status: 200, body: "MS_TODO_LIST_ID not set" }
     }
 
-    const taskBody = `GitHub Issue: ${issue.html_url}\n\n${issue.body ?? ""}`
+    const taskBody = buildTaskBodyFromIssue(issue.html_url as string, issue.body as string | null)
     await graphClient.request(`https://graph.microsoft.com/v1.0/me/todo/lists/${defaultListId}/tasks`, "POST", {
       title: issue.title,
       body: { content: taskBody, contentType: "text" },
@@ -112,7 +113,7 @@ async function githubWebhookHandler(request: HttpRequest, context: InvocationCon
       return { status: 200, body: "No linked task found" }
     }
 
-    const newStatus = action === "closed" ? "completed" : "notStarted"
+    const newStatus = githubActionToTodoStatus(action)
     await graphClient.request(
       `https://graph.microsoft.com/v1.0/me/todo/lists/${linked.listId}/tasks/${linked.taskId}`,
       "PATCH",
