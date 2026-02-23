@@ -11,7 +11,7 @@
  */
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions"
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js"
-import { mcpServer } from "../todo-index.js"
+import { mcpServer } from "../server.js"
 import { createIncomingMessage, createMockServerResponse } from "../azure-http-adapter.js"
 
 // Per-function-app session map (survives warm re-use)

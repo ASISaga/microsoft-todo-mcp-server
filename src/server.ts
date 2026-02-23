@@ -1,21 +1,25 @@
 /**
- * MCP server orchestrator – builds the dependency graph, instantiates all
- * tool groups, registers them with the McpServer, and exports the server for
+ * Integrity MCP server orchestrator – builds the dependency graph, instantiates
+ * all tool groups, registers them with the McpServer, and exports the server for
  * use with Azure Functions HTTP transport or the stdio transport.
+ *
+ * Integrity is the state of being "whole, complete, and unbroken":
+ *   Plan Your Work  → create SMART goals as tasks / issues
+ *   Work Your Plan  → track completion across both platforms in sync
  *
  * Dependency hierarchy:
  *   TokenManager
  *     └─ AuthService
- *          └─ GraphClient
- *   GitHubClient
+ *          └─ GraphClient  (Microsoft To Do – first-class citizen)
+ *   GitHubClient           (GitHub Issues  – first-class citizen)
  *
  * Tool classes (registered via their `register(server)` method):
  *   AuthTools          – authentication / session status
- *   TaskListTools      – task-list CRUD
- *   TaskTools          – task CRUD
- *   ChecklistTools     – checklist-item CRUD
+ *   TaskListTools      – task-list CRUD (Microsoft To Do)
+ *   TaskTools          – task CRUD (Microsoft To Do)
+ *   ChecklistTools     – checklist-item CRUD (Microsoft To Do)
  *   UtilityTools       – bulk archive + Graph API diagnostics
- *   GitHubTools        – GitHub ↔ To Do integration
+ *   GitHubTools        – GitHub Issues ↔ Microsoft To Do sync
  */
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import dotenv from "dotenv"
@@ -36,7 +40,7 @@ dotenv.config()
 // ── Server instance ───────────────────────────────────────────────────────────
 
 const server = new McpServer({
-  name: "mstodo",
+  name: "integrity",
   version: "1.0.0",
 })
 
@@ -57,7 +61,7 @@ export async function startServer(): Promise<void> {
     const { StdioServerTransport } = await import("@modelcontextprotocol/sdk/server/stdio.js")
     const transport = new StdioServerTransport()
     await server.connect(transport)
-    console.error("MCP server started on stdio")
+    console.error("Integrity MCP server started on stdio")
   } catch (error) {
     console.error("Error starting server:", error)
     throw error

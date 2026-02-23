@@ -1,114 +1,91 @@
 # Vision
 
-This project provides a Model Context Protocol (MCP) service for Claude that allows you to interact with your Microsoft Todo tasks using natural language.
+**Integrity** is the state of being "whole, complete, and unbroken."
 
-# Microsoft Todo Hierarchy
+- **Plan Your Work**: when you create a project plan you are giving your word to a specific set of future actions and results.
+- **Work Your Plan**: following the plan is the act of keeping that word.
 
-Microsoft Todo is organized in a three-level hierarchy:
+The Integrity MCP server provides an AI assistant interface (via the Model Context Protocol) for managing **SMART goals** across two equal, synchronized platforms:
 
-1. **Task Lists** - The top-level containers that organize tasks into categories, projects, or areas of focus (e.g., "Work", "Personal", "Shopping"). These help you group related tasks together.
+| Platform | Role |
+| --- | --- |
+| **Microsoft To Do** | task/checklist management via Microsoft Graph API |
+| **GitHub Issues** | issue tracking; always in sync with To Do |
 
-2. **Tasks** - The main todo items that represent actions or activities you need to complete. Tasks have properties like title, description, due date, importance, and status.
+## SMART Goals
 
-3. **Checklist Items** - Subtasks that belong to a parent task. These allow you to break down a task into smaller, manageable steps or components.
+SMART goals are **Specific, Measurable, Achievable, Relevant, and Time-bound**.
 
-# Supported Actions
-The current implementation supports the following actions:
+Every task and GitHub issue managed by this server represents a commitment. The server helps you:
+1. **Create** well-defined goals with titles, descriptions, due dates, and importance levels.
+2. **Track** progress across both platforms from a single AI interface.
+3. **Complete** goals — closing an issue marks the task done; completing a task can close the issue.
+4. **Archive** completed work to keep active lists focused.
 
-## Task List Management
-1. `get-task-lists` - Get all Microsoft Todo task lists (top-level containers)
-   - Shows list name, ID, and additional information (default list, shared status)
-   - Use this to find the IDs needed for other commands
+## Microsoft To Do Hierarchy
 
-2. `create-task-list` - Create a new task list to organize your tasks
-   - Required: displayName
-   - Example: `@mstodo create-task-list displayName="Work Projects"`
+Microsoft To Do is organized in a three-level hierarchy:
 
-3. `update-task-list` - Rename an existing task list
-   - Required: listId, displayName
-   - Example: `@mstodo update-task-list listId="LIST_ID" displayName="Important Work Projects"`
+1. **Task Lists** — top-level containers that organize tasks into projects or areas of focus.
+2. **Tasks** — the main action items (SMART goals). Properties: title, body, due date, importance, status, categories.
+3. **Checklist Items** — subtasks that break a goal into concrete action steps.
 
-4. `delete-task-list` - Delete a task list and all tasks within it
-   - Required: listId
-   - Example: `@mstodo delete-task-list listId="LIST_ID"`
+## GitHub Issues
 
-## Task Management
-5. `get-tasks` - Get tasks from a specific list
-   - Required: listId
-   - Optional: filter, select, orderby, top, skip, count
-   - Supports OData query parameters for advanced filtering and sorting
-   - Example: `@mstodo get-tasks listId="LIST_ID" filter="status eq 'notStarted'"`
+GitHub Issues are first-class citizens, equal in importance to To Do tasks:
 
-6. `create-task` - Create a new task in a specific list
-   - Required: listId, title
-   - Optional: body, dueDateTime, startDateTime, importance, isReminderOn, 
-     reminderDateTime, status, categories
-   - Example: `@mstodo create-task listId="LIST_ID" title="Finish report" dueDateTime="2023-12-31T23:59:59Z"`
+- Creating a task with a `#owner/repo` hashtag automatically opens a linked GitHub issue.
+- Closing a GitHub issue automatically marks the linked To Do task as completed.
+- Reopening a GitHub issue sets the To Do task back to "not started".
 
-7. `update-task` - Update an existing task
-   - Required: listId, taskId
-   - Optional: title, body, dueDateTime, startDateTime, importance, isReminderOn, 
-     reminderDateTime, status, categories
-   - Note: Empty string for date fields will remove the date
-   - Example: `@mstodo update-task listId="LIST_ID" taskId="TASK_ID" status="completed"`
+## Supported Tools
 
-8. `delete-task` - Delete a task and all its checklist items
-   - Required: listId, taskId
-   - Example: `@mstodo delete-task listId="LIST_ID" taskId="TASK_ID"`
+### Authentication
 
-## Checklist Item Management (Subtasks)
-9. `get-checklist-items` - Get subtasks for a specific task
-   - Required: listId, taskId
-   - Displays: item name, status (completed/not completed), creation date, and ID
-   - Shows the parent task title for better context
-   - Example: `@mstodo get-checklist-items listId="LIST_ID" taskId="TASK_ID"`
+- `auth-status` — check Microsoft Graph authentication status and token expiry.
 
-10. `create-checklist-item` - Create a new subtask for a task
-    - Required: listId, taskId, displayName
-    - Optional: isChecked (default is false)
-    - Example: `@mstodo create-checklist-item listId="LIST_ID" taskId="TASK_ID" displayName="Research competitors"`
+### Task List Management (Microsoft To Do)
 
-11. `update-checklist-item` - Update an existing subtask
-    - Required: listId, taskId, checklistItemId
-    - Optional: displayName, isChecked (at least one required)
-    - Example: `@mstodo update-checklist-item listId="LIST_ID" taskId="TASK_ID" checklistItemId="ITEM_ID" isChecked=true`
+- `get-task-lists` — list all To Do lists with IDs and sharing status.
+- `get-task-lists-organized` — hierarchical view grouped by category or sharing status.
+- `create-task-list` — create a new list (project container).
+- `update-task-list` — rename a list.
+- `delete-task-list` — delete a list and all tasks within it.
 
-12. `delete-checklist-item` - Delete a subtask from a task
-    - Required: listId, taskId, checklistItemId
-    - Example: `@mstodo delete-checklist-item listId="LIST_ID" taskId="TASK_ID" checklistItemId="ITEM_ID"`
+### Task Management (Microsoft To Do)
 
-## Authentication
-13. `auth-status` - Check if you're authenticated with Microsoft Graph API
-    - Shows token status and expiration time
-    - Example: `@mstodo auth-status`
+- `get-tasks` — retrieve tasks with OData filter/sort/pagination.
+- `create-task` — create a SMART goal task with title, body, due date, importance, and status.
+- `update-task` — update any task properties.
+- `delete-task` — delete a task and its checklist items.
 
-# references
+### Checklist Item Management (Subtasks)
+
+- `get-checklist-items` — list action steps for a task.
+- `create-checklist-item` — add an action step.
+- `update-checklist-item` — check off or rename an action step.
+- `delete-checklist-item` — remove an action step.
+
+### Utilities
+
+- `archive-completed-tasks` — move completed tasks older than N days to an archive list.
+- `test-graph-api-exploration` — explore Graph API properties (developer tool).
+
+### GitHub Integration
+
+- `create-github-issue-from-task` — manually push a To Do task to GitHub as an issue.
+- `sync-github-issues-to-todo` — pull closed GitHub issue statuses back into To Do.
+- `get-github-issue-status` — check the live GitHub issue linked to a task.
+
+## Webhook Automation (Event-Driven Sync)
+
+| Direction | Trigger | Action |
+| --- | --- | --- |
+| GitHub → To Do | Issue opened | Create linked To Do task |
+| GitHub → To Do | Issue closed | Mark To Do task completed |
+| GitHub → To Do | Issue reopened | Mark To Do task not started |
+| To Do → GitHub | Task created with `#owner/repo` | Open GitHub issue |
+
+## References
+
 - [MCP Documentation](mcp.md)
-- [Microsoft TODOs](microsofttodo.md)
-  - [todotasklist](todotasklist.md)
-  - [todotask](todotask.md)
-
-
-# memo
-https://smithery.ai/?q=todo
-https://glama.ai/mcp/servers?query=todo&sort=search-relevance%3Adesc
-
-Higher-Level Tools We Could Implement:
-create-smart-task - Create a main task with AI-generated subtasks
-breakdown-task - Take an existing task and break it down into subtasks
-add-today-task - Quickly add a task to your "Today" list without needing to know list IDs
-complete-task - Mark a task as complete (simpler than using update-task)
-list-my-tasks - Show tasks across lists with filtering by status/date without requiring complex OData queries
-reschedule-task - Push a task's due date forward by a certain number of days
-prioritize-tasks - Automatically sort tasks by importance, due date, etc.
-
-Options to Make It Compatible
-To make this work more like standard MCP servers, you'd need to:
-Modify the authentication approach:
-Package the auth logic directly into the MCP server
-Add a way to handle first-time auth within the server startup
-Support environment variable-based token injection like the GitHub example
-Package it properly:
-Create a proper npm package that includes both the server and auth logic
-Set up the package.json to make it runnable via npx
-For now, the best approach is to follow the current setup steps - install locally, run the separate auth process, and then configure Claude to point to the local build.

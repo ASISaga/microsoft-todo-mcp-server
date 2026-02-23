@@ -25,7 +25,10 @@ func start           # Requires Azure Functions Core Tools v4
 
 ## Architecture Overview
 
-This is a **Model Context Protocol (MCP) server** deployed 100% on **Azure Functions** (Consumption plan – scales to zero).
+This is the **Integrity MCP server** – a **Model Context Protocol (MCP) server** that manages SMART goals across **Microsoft To Do** and **GitHub Issues** as two equal, synchronized first-class platforms. Deployed 100% on **Azure Functions** (Consumption plan – scales to zero).
+
+> **Integrity** is the state of being "whole, complete, and unbroken."
+> Plan Your Work → Work Your Plan.
 
 ### Entry Points
 
@@ -34,7 +37,7 @@ This is a **Model Context Protocol (MCP) server** deployed 100% on **Azure Funct
 - **`src/functions/github-webhook.ts`** – HTTP trigger for GitHub issue webhooks (`/api/github-webhook`)
 - **`src/functions/todo-webhook.ts`** – HTTP trigger for Microsoft Graph change notifications (`/api/todo-webhook`)
 - **`src/functions/subscription-renew.ts`** – Timer trigger that renews Graph subscriptions every 12 h
-- **`src/todo-index.ts`** – MCP server with all 19 tools registered (transport-agnostic; exports `mcpServer`)
+- **`src/server.ts`** – MCP server with all 19 tools registered (transport-agnostic; exports `mcpServer`)
 - **`src/token-manager.ts`** – Stateless token management: reads env vars, refreshes via OAuth, in-memory cache
 - **`src/azure-http-adapter.ts`** – Adapts Azure Functions `HttpRequest`/`HttpResponseInit` to Node.js `IncomingMessage`/`ServerResponse` for `StreamableHTTPServerTransport`
 

@@ -7,7 +7,7 @@ export default defineConfig({
     'src/functions/github-webhook.ts',
     'src/functions/todo-webhook.ts',
     'src/functions/subscription-renew.ts',
-    'src/todo-index.ts',
+    'src/server.ts',
     'src/token-manager.ts',
     'src/azure-http-adapter.ts',
   ],
