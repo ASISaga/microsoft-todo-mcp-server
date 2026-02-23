@@ -1,7 +1,7 @@
 {
-  "name": "microsoft-todo-mcp-server",
+  "name": "integrity-mcp",
   "version": "2.0.0",
-  "description": "Microsoft To Do MCP server deployed on Azure Functions with GitHub webhook integration",
+  "description": "Integrity MCP server – plan your work with SMART goals across Microsoft To Do and GitHub Issues, deployed on Azure Functions",
   "main": "dist/index.js",
   "dependencies": {
     "@azure/functions": "^4.5.0",
@@ -27,21 +27,23 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ASISaga/microsoft-todo-mcp-server.git"
+    "url": "git+https://github.com/ASISaga/IntegrityMCP.git"
   },
   "keywords": [
     "mcp",
+    "integrity",
+    "smart-goals",
     "azure-functions",
     "microsoft-todo",
-    "webhooks",
-    "github"
+    "github-issues",
+    "webhooks"
   ],
   "author": "ASISaga",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/ASISaga/microsoft-todo-mcp-server/issues"
+    "url": "https://github.com/ASISaga/IntegrityMCP/issues"
   },
-  "homepage": "https://github.com/ASISaga/microsoft-todo-mcp-server#readme",
+  "homepage": "https://github.com/ASISaga/IntegrityMCP#readme",
   "devDependencies": {
     "@types/node": "^22.19.0",
     "prettier": "^3.6.2",

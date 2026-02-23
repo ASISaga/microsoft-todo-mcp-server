@@ -1,9 +1,32 @@
-# Microsoft To Do MCP Server on Azure Functions
+# Integrity MCP Server
 
-[![CI](https://github.com/ASISaga/microsoft-todo-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/ASISaga/microsoft-todo-mcp-server/actions/workflows/ci.yml)
-[![Deploy](https://github.com/ASISaga/microsoft-todo-mcp-server/actions/workflows/deploy.yml/badge.svg)](https://github.com/ASISaga/microsoft-todo-mcp-server/actions/workflows/deploy.yml)
+[![CI](https://github.com/ASISaga/IntegrityMCP/actions/workflows/ci.yml/badge.svg)](https://github.com/ASISaga/IntegrityMCP/actions/workflows/ci.yml)
+[![Deploy](https://github.com/ASISaga/IntegrityMCP/actions/workflows/deploy.yml/badge.svg)](https://github.com/ASISaga/IntegrityMCP/actions/workflows/deploy.yml)
 
-A **Model Context Protocol (MCP) server** that enables AI assistants (Claude, Cursor, etc.) to interact with **Microsoft To Do** via the Microsoft Graph API. Deployed exclusively on **Azure Functions Consumption plan** (scales to zero when idle) with **event-driven webhooks** for real-time two-way sync between Microsoft To Do and GitHub Issues.
+> **Integrity** is the state of being "whole, complete, and unbroken."
+>
+> - **Plan Your Work**: when you create a project plan you are giving your word to a specific set of future actions and results.
+> - **Work Your Plan**: following the plan is the act of keeping that word.
+
+A **Model Context Protocol (MCP) server** that enables AI assistants (Claude, Cursor, etc.) to manage **SMART goals** across two first-class platforms:
+
+| Platform            | Role                                                 |
+| ------------------- | ---------------------------------------------------- |
+| **Microsoft To Do** | task/checklist management via Microsoft Graph API    |
+| **GitHub Issues**   | issue tracking; synchronized with To Do in real-time |
+
+Deployed exclusively on **Azure Functions Consumption plan** (scales to zero when idle) with **event-driven webhooks** for two-way sync between the platforms.
+
+## SMART Goals
+
+SMART goals are **Specific, Measurable, Achievable, Relevant, and Time-bound**. The Integrity MCP server supports the full SMART lifecycle:
+
+| Phase        | Action                                                                |
+| ------------ | --------------------------------------------------------------------- |
+| **Plan**     | Create a task/issue with title, description, due date, and importance |
+| **Track**    | Monitor status across To Do and GitHub simultaneously                 |
+| **Complete** | Mark items done on either platform; the other side stays in sync      |
+| **Archive**  | Move old completed tasks to an archive list                           |
 
 ## Architecture
 
@@ -15,7 +38,7 @@ AI Assistant (Claude/Cursor)
 │   Azure Functions (HTTP)    │
 │                             │
 │  /api/mcp                   │  ◄── MCP Streamable HTTP endpoint
-│  /api/github-webhook        │  ◄── GitHub issue events (opened/closed)
+│  /api/github-webhook        │  ◄── GitHub issue events (opened/closed/reopened)
 │  /api/todo-webhook          │  ◄── Microsoft Graph change notifications
 │  subscription-renew (timer) │      Renews Graph subscriptions every 12 h
 └─────────────────────────────┘
@@ -29,7 +52,7 @@ AI Assistant (Claude/Cursor)
 
 ## Features
 
-- **MCP Tools** (15 tools): full task/list/checklist management via Graph API
+- **19 MCP Tools**: full task/list/checklist management + GitHub integration
 - **GitHub → To Do**: when a GitHub issue is opened, a linked To Do task is created; when closed, the task is marked complete
 - **To Do → GitHub**: when a task is created with a `#owner/repo` hashtag, a GitHub issue is opened automatically
 - **Automatic token refresh**: OAuth tokens are refreshed transparently using stored refresh tokens
@@ -60,8 +83,8 @@ AI Assistant (Claude/Cursor)
 Run the one-time auth flow locally to obtain a refresh token:
 
 ```bash
-git clone https://github.com/ASISaga/microsoft-todo-mcp-server.git
-cd microsoft-todo-mcp-server
+git clone https://github.com/ASISaga/IntegrityMCP.git
+cd IntegrityMCP
 
 # Set credentials
 export CLIENT_ID=<your-client-id>
@@ -69,7 +92,6 @@ export CLIENT_SECRET=<your-client-secret>
 export TENANT_ID=organizations   # or your tenant ID
 export REDIRECT_URI=http://localhost:3000/callback
 
-# Install and start a lightweight auth server (or use any OAuth 2.0 tool)
 # Exchange the auth code for tokens, then note the refresh_token value.
 ```
 
@@ -82,14 +104,14 @@ Store the refresh token securely – you will reference it in the Function App s
 az login
 
 # Create a resource group
-az group create --name rg-mstodo-mcp --location eastus
+az group create --name rg-integrity-mcp --location eastus
 
 # Deploy Bicep (creates Function App, Storage, App Insights – Consumption plan)
 az deployment group create \
-  --resource-group rg-mstodo-mcp \
+  --resource-group rg-integrity-mcp \
   --template-file infra/main.bicep \
   --parameters \
-      appName=mstodo-mcp \
+      appName=integrity-mcp \
       clientId=<CLIENT_ID> \
       clientSecret=<CLIENT_SECRET> \
       githubToken=<GITHUB_PAT> \
@@ -107,7 +129,7 @@ Add the following secrets to your GitHub repository (**Settings → Secrets and 
 | `AZURE_TENANT_ID`           | Azure tenant ID                                 |
 | `AZURE_SUBSCRIPTION_ID`     | Azure subscription ID                           |
 | `AZURE_RESOURCE_GROUP`      | Resource group name                             |
-| `AZURE_FUNCTIONAPP_NAME`    | Function app name (e.g. `mstodo-mcp`)           |
+| `AZURE_FUNCTIONAPP_NAME`    | Function app name (e.g. `integrity-mcp`)        |
 | `MS_TODO_CLIENT_ID`         | App registration client ID                      |
 | `MS_TODO_CLIENT_SECRET`     | App registration client secret                  |
 | `MS_TODO_TENANT_ID`         | Tenant ID                                       |
@@ -166,27 +188,39 @@ The functions are available at `http://localhost:7071/api/`.
 
 ## MCP Tools Reference
 
-| Tool                            | Description                                    |
-| ------------------------------- | ---------------------------------------------- |
-| `auth-status`                   | Show current authentication status             |
-| `get-task-lists`                | List all To Do lists                           |
-| `get-task-lists-organized`      | Hierarchical view grouped by category          |
-| `create-task-list`              | Create a new list                              |
-| `update-task-list`              | Rename a list                                  |
-| `delete-task-list`              | Delete a list and its tasks                    |
-| `get-tasks`                     | Get tasks from a list (with OData filter/sort) |
-| `create-task`                   | Create a task                                  |
-| `update-task`                   | Update a task                                  |
-| `delete-task`                   | Delete a task                                  |
-| `get-checklist-items`           | Get subtasks for a task                        |
-| `create-checklist-item`         | Add a subtask                                  |
-| `update-checklist-item`         | Update a subtask                               |
-| `delete-checklist-item`         | Delete a subtask                               |
-| `archive-completed-tasks`       | Move old completed tasks to an archive list    |
-| `create-github-issue-from-task` | Manually create a GitHub issue from a task     |
-| `sync-github-issues-to-todo`    | Bulk-sync closed issues → completed tasks      |
-| `get-github-issue-status`       | Check the GitHub issue linked to a task        |
-| `test-graph-api-exploration`    | Explore Graph API properties (dev tool)        |
+### Microsoft To Do Tools
+
+| Tool                       | Description                                    |
+| -------------------------- | ---------------------------------------------- |
+| `auth-status`              | Show current authentication status             |
+| `get-task-lists`           | List all To Do lists                           |
+| `get-task-lists-organized` | Hierarchical view grouped by category          |
+| `create-task-list`         | Create a new list                              |
+| `update-task-list`         | Rename a list                                  |
+| `delete-task-list`         | Delete a list and its tasks                    |
+| `get-tasks`                | Get tasks from a list (with OData filter/sort) |
+| `create-task`              | Create a task (SMART goal)                     |
+| `update-task`              | Update a task                                  |
+| `delete-task`              | Delete a task                                  |
+| `get-checklist-items`      | Get subtasks for a task                        |
+| `create-checklist-item`    | Add a subtask (action step)                    |
+| `update-checklist-item`    | Update a subtask                               |
+| `delete-checklist-item`    | Delete a subtask                               |
+| `archive-completed-tasks`  | Move old completed tasks to an archive list    |
+
+### GitHub Integration Tools
+
+| Tool                            | Description                                            |
+| ------------------------------- | ------------------------------------------------------ |
+| `create-github-issue-from-task` | Manually create a GitHub issue from a To Do task       |
+| `sync-github-issues-to-todo`    | Bulk-sync closed GitHub issues → completed To Do tasks |
+| `get-github-issue-status`       | Check the GitHub issue linked to a task                |
+
+### Diagnostic Tools
+
+| Tool                         | Description                                   |
+| ---------------------------- | --------------------------------------------- |
+| `test-graph-api-exploration` | Explore Graph API properties (dev/debug tool) |
 
 ## Environment Variables
 
