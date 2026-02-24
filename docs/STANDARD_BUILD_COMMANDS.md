@@ -8,6 +8,8 @@ pnpm run build                # Compile TypeScript → dist/
 pnpm run typecheck            # Type-check without emitting
 pnpm run lint                 # Prettier format check
 pnpm run format               # Fix formatting
+pnpm run test                 # Run test suite (Vitest)
+pnpm run test:watch           # Run tests in watch mode
 pnpm run ci                   # lint + typecheck + build
 ```
 
