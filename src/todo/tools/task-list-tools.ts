@@ -321,7 +321,6 @@ export class TaskListTools {
       async ({ listId }) => {
         try {
           const url = `${MS_GRAPH_BASE}/me/todo/lists/${listId}`
-          console.error(`Deleting task list: ${url}`)
 
           await this.graphClient.request<null>(url, "DELETE")
 

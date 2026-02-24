@@ -9,6 +9,9 @@
  */
 import { MS_GRAPH_BASE, MS_GRAPH_BETA_BASE, USER_AGENT } from "../../integrity/constants.js"
 import { AuthService, authService } from "../auth/AuthService.js"
+import { logger } from "../../integrity/logger.js"
+
+const log = logger.child({ module: "GraphClient" })
 
 export { MS_GRAPH_BASE }
 
@@ -27,7 +30,7 @@ export class GraphClient {
   async request<T>(url: string, method = "GET", body?: unknown): Promise<T | null> {
     let token = await this.authService.getAccessToken()
     if (!token) {
-      console.error("No access token available for Graph API request")
+      log.error("No access token available for Graph API request")
       return null
     }
 
@@ -45,19 +48,13 @@ export class GraphClient {
         options.body = JSON.stringify(body)
       }
 
-      console.error(`Making request to: ${url}`)
-      console.error(
-        `Request options: ${JSON.stringify({
-          method,
-          headers: { ...buildHeaders("[REDACTED]") },
-        })}`,
-      )
+      log.debug("Graph API request", { url, method })
 
       let response = await fetch(url, options)
 
       // On 401, attempt a single token refresh and retry
       if (response.status === 401) {
-        console.error("Got 401, attempting token refresh...")
+        log.info("Got 401, attempting token refresh")
         const newToken = await this.authService.getAccessToken()
         if (newToken && newToken !== token) {
           token = newToken
@@ -69,20 +66,10 @@ export class GraphClient {
 
       if (!response.ok) {
         const errorText = await response.text()
-        console.error(`HTTP error! status: ${response.status}, body: ${errorText}`)
+        log.error("Graph API HTTP error", { status: response.status, url })
 
         if (errorText.includes("MailboxNotEnabledForRESTAPI")) {
-          console.error(`
-=================================================================
-ERROR: MailboxNotEnabledForRESTAPI
-
-The Microsoft To Do API is not available for personal Microsoft accounts
-(outlook.com, hotmail.com, live.com, etc.) through the Graph API.
-
-This is a limitation of the Microsoft Graph API, not an authentication issue.
-Microsoft only allows To Do API access for Microsoft 365 business accounts.
-=================================================================
-          `)
+          log.error("MailboxNotEnabledForRESTAPI — To Do API unavailable for personal Microsoft accounts")
           throw new Error(
             "Microsoft To Do API is not available for personal Microsoft accounts. See console for details.",
           )
@@ -92,10 +79,10 @@ Microsoft only allows To Do API access for Microsoft 365 business accounts.
       }
 
       const data = await response.json()
-      console.error(`Response received: ${JSON.stringify(data).substring(0, 200)}...`)
+      log.debug("Graph API response received", { url })
       return data as T
     } catch (error) {
-      console.error("Error making Graph API request:", error)
+      log.error("Error making Graph API request", { error: String(error), url })
       return null
     }
   }

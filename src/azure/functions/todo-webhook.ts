@@ -31,22 +31,14 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/fu
 import { graphClient } from "../../todo/graph/GraphClient.js"
 import { gitHubClient, GITHUB_API_BASE } from "../../github/GitHubClient.js"
 import { hasGitHubIssueLink, buildIssueBodyFromTask, appendIssueLink } from "../../integrity/sync.js"
+import {
+  GraphNotificationPayloadSchema,
+  type GraphNotification as GraphNotificationType,
+} from "../../integrity/schemas.js"
 
 // ── Notification processing ───────────────────────────────────────────────────
 
-interface GraphNotification {
-  id: string
-  changeType: string
-  clientState?: string
-  resource: string
-  resourceData?: {
-    id: string
-    "@odata.type": string
-    "@odata.id": string
-  }
-}
-
-async function processNotification(notification: GraphNotification, context: InvocationContext): Promise<void> {
+async function processNotification(notification: GraphNotificationType, context: InvocationContext): Promise<void> {
   if (notification.changeType !== "created") return
 
   if (!gitHubClient.hasToken()) {
@@ -133,9 +125,14 @@ async function todoWebhookHandler(request: HttpRequest, context: InvocationConte
     }
   }
 
-  let payload: { value: GraphNotification[] }
+  let payload: { value: GraphNotificationType[] }
   try {
-    payload = (await request.json()) as { value: GraphNotification[] }
+    const raw = await request.json()
+    const parseResult = GraphNotificationPayloadSchema.safeParse(raw)
+    if (!parseResult.success) {
+      return { status: 400, body: "Invalid payload" }
+    }
+    payload = parseResult.data
   } catch {
     return { status: 400, body: "Invalid JSON" }
   }

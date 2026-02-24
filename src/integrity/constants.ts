@@ -8,4 +8,7 @@ export const MS_GRAPH_BETA_BASE = "https://graph.microsoft.com/beta"
 export const GITHUB_API_BASE = "https://api.github.com"
 
 /** User-Agent header value sent with every outbound HTTP request. */
-export const USER_AGENT = "integrity-mcp/1.0"
+export const USER_AGENT = "integrity-mcp/2.0"
+
+/** Package version, kept in sync with package.json. */
+export const VERSION = "2.0.0"

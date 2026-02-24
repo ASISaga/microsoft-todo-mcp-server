@@ -6,6 +6,9 @@
  */
 import { TokenManager, tokenManager } from "../token-manager.js"
 import { MS_GRAPH_BASE } from "../../integrity/constants.js"
+import { logger } from "../../integrity/logger.js"
+
+const log = logger.child({ module: "AuthService" })
 
 /** Personal Microsoft account email domains that lack Graph To Do access. */
 const PERSONAL_ACCOUNT_DOMAINS = ["outlook.com", "hotmail.com", "live.com", "msn.com", "passport.com"]
@@ -26,10 +29,10 @@ export class AuthService {
       if (tokens) {
         return tokens.accessToken
       }
-      console.error("No valid tokens available")
+      log.warn("No valid tokens available")
       return null
     } catch (error) {
-      console.error("Error getting access token:", error)
+      log.error("Error getting access token", { error: String(error) })
       return null
     }
   }
@@ -53,7 +56,7 @@ export class AuthService {
       })
 
       if (!response.ok) {
-        console.error(`Error getting user info: ${response.status}`)
+        log.error("Error getting user info", { status: response.status })
         return false
       }
 
@@ -62,24 +65,13 @@ export class AuthService {
       const domain = email.split("@")[1]?.toLowerCase()
 
       if (domain && PERSONAL_ACCOUNT_DOMAINS.some((d) => domain.includes(d))) {
-        console.error(`
-=================================================================
-WARNING: Personal Microsoft Account Detected
-
-Your Microsoft account (${email}) appears to be a personal account.
-Microsoft To Do API access is typically not available for personal accounts
-through the Microsoft Graph API, only for Microsoft 365 business accounts.
-
-You may encounter the "MailboxNotEnabledForRESTAPI" error. This is a
-limitation of the Microsoft Graph API, not an issue with authentication.
-=================================================================
-        `)
+        log.warn("Personal Microsoft Account detected — To Do API may not be available", { email })
         return true
       }
 
       return false
     } catch (error) {
-      console.error("Error checking account type:", error)
+      log.error("Error checking account type", { error: String(error) })
       return false
     }
   }

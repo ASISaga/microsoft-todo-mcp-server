@@ -172,7 +172,6 @@ export class ChecklistTools {
       async ({ listId, taskId, checklistItemId }) => {
         try {
           const url = `${MS_GRAPH_BASE}/me/todo/lists/${listId}/tasks/${taskId}/checklistItems/${checklistItemId}`
-          console.error(`Deleting checklist item: ${url}`)
 
           await this.graphClient.request<null>(url, "DELETE")
 

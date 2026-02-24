@@ -26,6 +26,7 @@ import { createHmac, timingSafeEqual } from "node:crypto"
 import { graphClient } from "../../todo/graph/GraphClient.js"
 import { githubActionToTodoStatus, buildTaskBodyFromIssue } from "../../integrity/sync.js"
 import { MS_GRAPH_BASE, MS_GRAPH_BETA_BASE } from "../../integrity/constants.js"
+import { GitHubIssuesEventSchema } from "../../integrity/schemas.js"
 import type { TaskList, TaskListGroup } from "../../todo/graph/types.js"
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -129,13 +130,12 @@ async function githubWebhookHandler(request: HttpRequest, context: InvocationCon
     }
   }
 
-  let payload: Record<string, any>
-  try {
-    payload = JSON.parse(rawBody.toString("utf8"))
-  } catch {
-    return { status: 400, body: "Invalid JSON" }
+  const parseResult = GitHubIssuesEventSchema.safeParse(JSON.parse(rawBody.toString("utf8")))
+  if (!parseResult.success) {
+    return { status: 400, body: "Invalid payload" }
   }
 
+  const payload = parseResult.data
   const event = request.headers.get("x-github-event")
   context.log(`GitHub event: ${event}, action: ${payload.action}`)
 
@@ -143,16 +143,11 @@ async function githubWebhookHandler(request: HttpRequest, context: InvocationCon
     return { status: 200, body: "Event ignored" }
   }
 
-  const { action, issue, repository } = payload as {
-    action: string
-    issue: Record<string, any>
-    repository?: Record<string, any>
-  }
+  const { action, issue, repository } = payload
 
   if (action === "opened") {
-    // Determine owner and repo from the webhook payload
-    const owner = repository?.owner?.login as string | undefined
-    const repo = repository?.name as string | undefined
+    const owner = repository?.owner?.login
+    const repo = repository?.name
 
     if (!owner || !repo) {
       context.warn("Webhook payload missing repository owner or name – skipping task creation")
@@ -166,7 +161,7 @@ async function githubWebhookHandler(request: HttpRequest, context: InvocationCon
       return { status: 200, body: "No matching list group" }
     }
 
-    const taskBody = buildTaskBodyFromIssue(issue.html_url as string, issue.body as string | null)
+    const taskBody = buildTaskBodyFromIssue(issue.html_url, issue.body)
     await graphClient.request(`${MS_GRAPH_BASE}/me/todo/lists/${listId}/tasks`, "POST", {
       title: issue.title,
       body: { content: taskBody, contentType: "text" },
@@ -177,7 +172,7 @@ async function githubWebhookHandler(request: HttpRequest, context: InvocationCon
   }
 
   if (action === "closed" || action === "reopened") {
-    const linked = await findLinkedTask(issue.html_url as string)
+    const linked = await findLinkedTask(issue.html_url)
     if (!linked) {
       context.log(`No linked Todo task found for ${issue.html_url}`)
       return { status: 200, body: "No linked task found" }

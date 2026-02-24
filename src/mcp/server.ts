@@ -23,6 +23,7 @@
  */
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import dotenv from "dotenv"
+import { VERSION } from "../integrity/constants.js"
 import { tokenManager } from "../todo/token-manager.js"
 import { authService } from "../todo/auth/AuthService.js"
 import { graphClient } from "../todo/graph/GraphClient.js"
@@ -41,7 +42,7 @@ dotenv.config()
 
 const server = new McpServer({
   name: "integrity",
-  version: "1.0.0",
+  version: VERSION,
 })
 
 // ── Register all tools (constructor injection) ────────────────────────────────

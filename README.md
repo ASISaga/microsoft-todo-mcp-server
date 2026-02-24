@@ -40,6 +40,7 @@ AI Assistant (Claude/Cursor)
 │  /api/mcp                   │  ◄── MCP Streamable HTTP endpoint
 │  /api/github-webhook        │  ◄── GitHub issue events (opened/closed/reopened)
 │  /api/todo-webhook          │  ◄── Microsoft Graph change notifications
+│  /api/health                │  ◄── Health-check / monitoring
 │  subscription-renew (timer) │      Renews Graph subscriptions every 12 h
 └─────────────────────────────┘
         │                  │
@@ -54,9 +55,14 @@ AI Assistant (Claude/Cursor)
 
 - **19 MCP Tools**: full task/list/checklist management + GitHub integration
 - **GitHub → To Do**: when a GitHub issue is opened, a linked To Do task is created; when closed, the task is marked complete
-- **To Do → GitHub**: when a task is created with a `#owner/repo` hashtag, a GitHub issue is opened automatically
+- **To Do → GitHub**: when a task is created in a mapped list, a GitHub issue is opened automatically (structural mapping: list group → owner, list → repo)
 - **Automatic token refresh**: OAuth tokens are refreshed transparently using stored refresh tokens
 - **TypeScript + ESM**: fully typed codebase built with `tsup`
+- **Health endpoint**: `GET /api/health` returns version, uptime, and service connectivity status
+- **Structured logging**: level-aware logger with context propagation (replaces raw `console.error`)
+- **Typed domain errors**: `IntegrityError` hierarchy (`AuthError`, `GraphError`, `GitHubError`, `WebhookError`)
+- **Zod webhook validation**: inbound GitHub and Graph webhook payloads are validated at the edge
+- **Test suite**: Vitest-based tests covering core domain logic, schemas, and utilities
 
 ## Prerequisites
 
@@ -65,7 +71,7 @@ AI Assistant (Claude/Cursor)
 | Azure subscription            | Free tier works                                                    |
 | Azure App Registration        | Delegated `Tasks.Read`, `Tasks.ReadWrite`, `User.Read` permissions |
 | GitHub PAT                    | `repo` scope for issue creation                                    |
-| Node.js ≥ 18                  | For local development                                              |
+| Node.js ≥ 20                  | For local development                                              |
 | pnpm                          | `npm install -g pnpm`                                              |
 | Azure Functions Core Tools v4 | `npm install -g azure-functions-core-tools@4`                      |
 
@@ -224,27 +230,31 @@ The functions are available at `http://localhost:7071/api/`.
 
 ## Environment Variables
 
-| Variable                    | Required | Description                                     |
-| --------------------------- | -------- | ----------------------------------------------- |
-| `CLIENT_ID`                 | ✅       | Azure app registration client ID                |
-| `CLIENT_SECRET`             | ✅       | Azure app registration client secret            |
-| `TENANT_ID`                 | ✅       | `organizations`, `consumers`, `common`, or GUID |
-| `MS_TODO_REFRESH_TOKEN`     | ✅       | OAuth refresh token                             |
-| `MS_TODO_ACCESS_TOKEN`      | ⬜       | Current access token (auto-refreshed)           |
-| `MS_TODO_TOKEN_EXPIRES_AT`  | ⬜       | Unix-ms expiry of access token                  |
-| `GITHUB_TOKEN`              | ⬜       | GitHub PAT for issue creation                   |
-| `GITHUB_WEBHOOK_SECRET`     | ⬜       | Validates GitHub webhook payloads               |
-| `GRAPH_SUBSCRIPTION_SECRET` | ⬜       | Validates Graph change notifications            |
-| `GRAPH_SUBSCRIPTION_IDS`    | ⬜       | Comma-separated Graph subscription IDs to renew |
-| `MS_TODO_LIST_ID`           | ⬜       | Default list for GitHub → task creation         |
+| Variable                    | Required | Description                                                                  |
+| --------------------------- | -------- | ---------------------------------------------------------------------------- |
+| `CLIENT_ID`                 | ✅       | Azure app registration client ID                                             |
+| `CLIENT_SECRET`             | ✅       | Azure app registration client secret                                         |
+| `TENANT_ID`                 | ✅       | `organizations`, `consumers`, `common`, or GUID                              |
+| `MS_TODO_REFRESH_TOKEN`     | ✅       | OAuth refresh token                                                          |
+| `MS_TODO_ACCESS_TOKEN`      | ⬜       | Current access token (auto-refreshed)                                        |
+| `MS_TODO_TOKEN_EXPIRES_AT`  | ⬜       | Unix-ms expiry of access token                                               |
+| `GITHUB_TOKEN`              | ⬜       | GitHub PAT for issue creation                                                |
+| `GITHUB_WEBHOOK_SECRET`     | ⬜       | Validates GitHub webhook payloads                                            |
+| `GRAPH_SUBSCRIPTION_SECRET` | ⬜       | Validates Graph change notifications                                         |
+| `GRAPH_SUBSCRIPTION_IDS`    | ⬜       | Comma-separated Graph subscription IDs to renew                              |
+| `MS_TODO_LIST_ID`           | ⬜       | Default list for GitHub → task creation                                      |
+| `LOG_LEVEL`                 | ⬜       | Logger minimum level: `debug` / `info` / `warn` / `error` (default: `debug`) |
 
 ## Development Commands
 
 ```bash
+pnpm install        # Install dependencies
 pnpm run build      # Compile TypeScript (tsup)
 pnpm run typecheck  # TypeScript type check only
 pnpm run lint       # Prettier format check
 pnpm run format     # Fix formatting
+pnpm run test       # Run test suite (Vitest)
+pnpm run test:watch # Run tests in watch mode
 pnpm run ci         # lint + typecheck + build (used in CI)
 ```
 
