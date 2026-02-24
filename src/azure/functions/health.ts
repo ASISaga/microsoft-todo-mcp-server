@@ -7,6 +7,7 @@
  * GET /api/health
  */
 import { app, HttpResponseInit } from "@azure/functions"
+import { VERSION } from "../../integrity/constants.js"
 
 const startedAt = Date.now()
 
@@ -16,7 +17,7 @@ async function healthHandler(): Promise<HttpResponseInit> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       status: "healthy",
-      version: "2.0.0",
+      version: VERSION,
       uptime: Math.floor((Date.now() - startedAt) / 1000),
       timestamp: new Date().toISOString(),
       services: {
