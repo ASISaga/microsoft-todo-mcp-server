@@ -40,8 +40,6 @@ export class TaskTools {
           const queryString = queryParams.toString()
           const url = `${MS_GRAPH_BASE}/me/todo/lists/${listId}/tasks${queryString ? "?" + queryString : ""}`
 
-          console.error(`Making request to: ${url}`)
-
           const response = await this.graphClient.request<{ value: Task[]; "@odata.count"?: number }>(url)
 
           if (!response) {
@@ -266,7 +264,6 @@ export class TaskTools {
       async ({ listId, taskId }) => {
         try {
           const url = `${MS_GRAPH_BASE}/me/todo/lists/${listId}/tasks/${taskId}`
-          console.error(`Deleting task: ${url}`)
 
           await this.graphClient.request<null>(url, "DELETE")
 

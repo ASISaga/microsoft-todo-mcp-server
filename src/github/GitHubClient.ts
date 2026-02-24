@@ -4,6 +4,9 @@
  * Reads the `GITHUB_TOKEN` environment variable for authentication.
  */
 import { GITHUB_API_BASE, USER_AGENT } from "../integrity/constants.js"
+import { logger } from "../integrity/logger.js"
+
+const log = logger.child({ module: "GitHubClient" })
 
 export { GITHUB_API_BASE }
 
@@ -72,7 +75,7 @@ export class GitHubClient {
 
       return (await response.json()) as T
     } catch (error) {
-      console.error("Error making GitHub API request:", error)
+      log.error("Error making GitHub API request", { error: String(error), url })
       throw error
     }
   }

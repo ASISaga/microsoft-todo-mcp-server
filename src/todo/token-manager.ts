@@ -2,6 +2,10 @@
 // Token management for Azure Functions – reads from environment variables,
 // refreshes via OAuth 2.0 refresh-token grant, and caches in-memory.
 
+import { logger } from "../integrity/logger.js"
+
+const log = logger.child({ module: "TokenManager" })
+
 /** Buffer before token expiry to trigger proactive refresh (5 minutes). */
 const TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000
 
@@ -57,7 +61,7 @@ export class TokenManager {
       return this.refreshAccessToken(refreshToken)
     }
 
-    console.error("No valid access token or refresh token available.")
+    log.warn("No valid access token or refresh token available")
     return null
   }
 
@@ -67,7 +71,7 @@ export class TokenManager {
     const tenantId = process.env.TENANT_ID || process.env.MS_TODO_TENANT_ID || "organizations"
 
     if (!clientId || !clientSecret) {
-      console.error("Missing CLIENT_ID or CLIENT_SECRET for token refresh")
+      log.error("Missing CLIENT_ID or CLIENT_SECRET for token refresh")
       return null
     }
 
@@ -90,7 +94,7 @@ export class TokenManager {
 
       if (!response.ok) {
         const errorText = await response.text()
-        console.error(`Token refresh failed (${response.status}): ${errorText}`)
+        log.error("Token refresh failed", { status: response.status, error: errorText })
         return null
       }
 
@@ -105,7 +109,7 @@ export class TokenManager {
 
       return this.cachedToken
     } catch (error) {
-      console.error("Error refreshing token:", error)
+      log.error("Error refreshing token", { error: String(error) })
       return null
     }
   }
