@@ -26,9 +26,10 @@
  *   }
  */
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions"
-import { graphClient } from "../graph/GraphClient.js"
-import { gitHubClient, GITHUB_API_BASE } from "../github/GitHubClient.js"
-import { extractGitHubRepo } from "../github/utils.js"
+import { graphClient } from "../../todo/graph/GraphClient.js"
+import { gitHubClient, GITHUB_API_BASE } from "../../github/GitHubClient.js"
+import { extractGitHubRepo } from "../../github/utils.js"
+import { hasGitHubIssueLink, buildIssueBodyFromTask, appendIssueLink } from "../../integrity/sync.js"
 
 // ── Notification processing ───────────────────────────────────────────────────
 
@@ -76,8 +77,8 @@ async function processNotification(notification: GraphNotification, context: Inv
 
   const bodyContent = task.body?.content ?? ""
 
-  // Skip if a GitHub issue link already exists (anchored to https://github.com/ to prevent bypass)
-  if (/https:\/\/github\.com\/[^/]+\/[^/]+\/issues\/\d+/.test(bodyContent)) {
+  // Skip if a GitHub issue link already exists
+  if (hasGitHubIssueLink(bodyContent)) {
     context.log(`Task "${task.title}" already has a GitHub issue link`)
     return
   }
@@ -89,9 +90,7 @@ async function processNotification(notification: GraphNotification, context: Inv
     return
   }
 
-  const issueBody = bodyContent
-    ? `${bodyContent}\n\n---\n*Created from Microsoft To Do task*`
-    : "*Created from Microsoft To Do task*"
+  const issueBody = buildIssueBodyFromTask(bodyContent)
 
   const issue = await gitHubClient.request<{ html_url: string; number: number }>(
     `${GITHUB_API_BASE}/repos/${repo.owner}/${repo.repo}/issues`,
@@ -103,10 +102,8 @@ async function processNotification(notification: GraphNotification, context: Inv
 
   context.log(`Created GitHub issue #${issue.number} for task "${task.title}"`)
 
-  // Store the issue URL back in the task body
-  const updatedBody = bodyContent
-    ? `${bodyContent}\n\nGitHub Issue: ${issue.html_url}`
-    : `GitHub Issue: ${issue.html_url}`
+  // Store the issue URL back in the task body so the link can be resolved later
+  const updatedBody = appendIssueLink(bodyContent, issue.html_url)
 
   // Extract listId from the resource path
   const listIdMatch = notification.resource.match(/lists\/([^/]+)\/tasks/)

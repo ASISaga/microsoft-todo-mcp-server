@@ -5,7 +5,7 @@
  * convenience methods used by individual tool implementations.
  */
 import { TokenManager, tokenManager } from "../token-manager.js"
-import { MS_GRAPH_BASE } from "../constants.js"
+import { MS_GRAPH_BASE } from "../../integrity/constants.js"
 
 /** Personal Microsoft account email domains that lack Graph To Do access. */
 const PERSONAL_ACCOUNT_DOMAINS = ["outlook.com", "hotmail.com", "live.com", "msn.com", "passport.com"]

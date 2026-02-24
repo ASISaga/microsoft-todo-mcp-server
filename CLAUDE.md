@@ -33,13 +33,25 @@ This is the **Integrity MCP server** – a **Model Context Protocol (MCP) server
 ### Entry Points
 
 - **`src/index.ts`** – Azure Functions entry point; imports all function modules
-- **`src/functions/mcp.ts`** – HTTP trigger for the MCP Streamable HTTP endpoint (`/api/mcp`)
-- **`src/functions/github-webhook.ts`** – HTTP trigger for GitHub issue webhooks (`/api/github-webhook`)
-- **`src/functions/todo-webhook.ts`** – HTTP trigger for Microsoft Graph change notifications (`/api/todo-webhook`)
-- **`src/functions/subscription-renew.ts`** – Timer trigger that renews Graph subscriptions every 12 h
-- **`src/server.ts`** – MCP server with all 19 tools registered (transport-agnostic; exports `mcpServer`)
-- **`src/token-manager.ts`** – Stateless token management: reads env vars, refreshes via OAuth, in-memory cache
-- **`src/azure-http-adapter.ts`** – Adapts Azure Functions `HttpRequest`/`HttpResponseInit` to Node.js `IncomingMessage`/`ServerResponse` for `StreamableHTTPServerTransport`
+- **`src/azure/functions/mcp.ts`** – HTTP trigger for the MCP Streamable HTTP endpoint (`/api/mcp`)
+- **`src/azure/functions/github-webhook.ts`** – HTTP trigger for GitHub issue webhooks (`/api/github-webhook`)
+- **`src/azure/functions/todo-webhook.ts`** – HTTP trigger for Microsoft Graph change notifications (`/api/todo-webhook`)
+- **`src/azure/functions/subscription-renew.ts`** – Timer trigger that renews Graph subscriptions every 12 h
+- **`src/mcp/server.ts`** – MCP server with all tools registered (transport-agnostic; exports `mcpServer`)
+- **`src/todo/token-manager.ts`** – Stateless token management: reads env vars, refreshes via OAuth, in-memory cache
+- **`src/azure/http-adapter.ts`** – Adapts Azure Functions `HttpRequest`/`HttpResponseInit` to Node.js `IncomingMessage`/`ServerResponse` for `StreamableHTTPServerTransport`
+
+### Code Hierarchy
+
+The source is organized into five prominent hierarchies under `src/`:
+
+| Hierarchy           | Path             | Contents                                                                        |
+| ------------------- | ---------------- | ------------------------------------------------------------------------------- |
+| **Integrity**       | `src/integrity/` | Shared constants (`MS_GRAPH_BASE`, `GITHUB_API_BASE`, `USER_AGENT`)             |
+| **Azure**           | `src/azure/`     | Azure Functions HTTP adapter + all Azure Function triggers                      |
+| **Microsoft To Do** | `src/todo/`      | Token management, Graph API client, auth service, and all To Do MCP tools       |
+| **GitHub Issues**   | `src/github/`    | GitHub API client, repo/issue URL utilities, and GitHub MCP tools               |
+| **MCP Server**      | `src/mcp/`       | MCP server orchestrator that wires the dependency graph and registers all tools |
 
 ### Infrastructure
 

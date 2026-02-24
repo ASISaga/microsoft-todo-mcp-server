@@ -12,7 +12,7 @@
  * or use the Microsoft Graph Explorer / az cli.
  */
 import { app, InvocationContext, Timer } from "@azure/functions"
-import { graphClient } from "../graph/GraphClient.js"
+import { graphClient } from "../../todo/graph/GraphClient.js"
 
 /** Maximum subscription expiry for Microsoft To Do tasks: 4 230 min ≈ 2.9 days. */
 const SUBSCRIPTION_EXPIRY_MINUTES = 4230

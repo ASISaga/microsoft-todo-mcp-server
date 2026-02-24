@@ -11,8 +11,8 @@
  */
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions"
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js"
-import { mcpServer } from "../server.js"
-import { createIncomingMessage, createMockServerResponse } from "../azure-http-adapter.js"
+import { mcpServer } from "../../mcp/server.js"
+import { createIncomingMessage, createMockServerResponse } from "../http-adapter.js"
 
 // Per-function-app session map (survives warm re-use)
 const sessions = new Map<string, StreamableHTTPServerTransport>()
