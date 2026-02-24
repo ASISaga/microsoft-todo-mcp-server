@@ -6,6 +6,15 @@ export interface TaskList {
   isShared?: boolean
   /** Possible values: 'none', 'defaultList', 'flaggedEmails', 'unknownFutureValue' */
   wellknownListName?: string
+  /** ID of the list group this list belongs to (available via beta API). */
+  groupId?: string
+}
+
+/** Represents a Microsoft To Do task list group (beta API). */
+export interface TaskListGroup {
+  id: string
+  displayName: string
+  groupOrderHint?: string
 }
 
 /** Represents a Microsoft To Do task. */

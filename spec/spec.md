@@ -22,19 +22,41 @@ Every task and GitHub issue managed by this server represents a commitment. The 
 3. **Complete** goals — closing an issue marks the task done; completing a task can close the issue.
 4. **Archive** completed work to keep active lists focused.
 
+## Structural Mapping
+
+The To Do hierarchy mirrors the GitHub hierarchy exactly — no hashtags required:
+
+| Microsoft To Do | GitHub |
+| --- | --- |
+| **List group** | GitHub profile / organisation name (owner) |
+| **Task list** | Repository name |
+| **Task** | Issue |
+
+**Example:**
+```
+To Do list group: "ASISaga"          → GitHub owner: ASISaga
+  To Do list: "IntegrityMCP"         → GitHub repo:  ASISaga/IntegrityMCP
+    To Do task: "Fix login bug"      → GitHub issue: ASISaga/IntegrityMCP#42
+```
+
+This structure is enforced automatically by the webhook handlers: creating a task
+in a mapped list opens a GitHub issue in the corresponding repository, and opening
+a GitHub issue creates a task in the matching list.
+
 ## Microsoft To Do Hierarchy
 
-Microsoft To Do is organized in a three-level hierarchy:
+Microsoft To Do is organized in a four-level hierarchy:
 
-1. **Task Lists** — top-level containers that organize tasks into projects or areas of focus.
-2. **Tasks** — the main action items (SMART goals). Properties: title, body, due date, importance, status, categories.
-3. **Checklist Items** — subtasks that break a goal into concrete action steps.
+1. **List Groups** — top-level containers that map to GitHub owner/org names.
+2. **Task Lists** — mid-level containers that map to GitHub repository names.
+3. **Tasks** — the main action items (SMART goals / GitHub issues). Properties: title, body, due date, importance, status, categories.
+4. **Checklist Items** — subtasks that break a goal into concrete action steps.
 
 ## GitHub Issues
 
 GitHub Issues are first-class citizens, equal in importance to To Do tasks:
 
-- Creating a task with a `#owner/repo` hashtag automatically opens a linked GitHub issue.
+- Creating a task in a mapped list automatically opens a linked GitHub issue.
 - Closing a GitHub issue automatically marks the linked To Do task as completed.
 - Reopening a GitHub issue sets the To Do task back to "not started".
 
@@ -73,7 +95,7 @@ GitHub Issues are first-class citizens, equal in importance to To Do tasks:
 
 ### GitHub Integration
 
-- `create-github-issue-from-task` — manually push a To Do task to GitHub as an issue.
+- `create-github-issue-from-task` — push a To Do task to GitHub as an issue using the structural mapping (list group → owner, list → repo). No hashtag needed.
 - `sync-github-issues-to-todo` — pull closed GitHub issue statuses back into To Do.
 - `get-github-issue-status` — check the live GitHub issue linked to a task.
 
@@ -81,10 +103,10 @@ GitHub Issues are first-class citizens, equal in importance to To Do tasks:
 
 | Direction | Trigger | Action |
 | --- | --- | --- |
-| GitHub → To Do | Issue opened | Create linked To Do task |
-| GitHub → To Do | Issue closed | Mark To Do task completed |
-| GitHub → To Do | Issue reopened | Mark To Do task not started |
-| To Do → GitHub | Task created with `#owner/repo` | Open GitHub issue |
+| GitHub → To Do | Issue opened | Find list group matching owner + list matching repo; create linked task |
+| GitHub → To Do | Issue closed | Mark linked To Do task completed |
+| GitHub → To Do | Issue reopened | Mark linked To Do task not started |
+| To Do → GitHub | Task created in a mapped list | Open GitHub issue in the corresponding repo |
 
 ## References
 

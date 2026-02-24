@@ -9,7 +9,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { GraphClient, MS_GRAPH_BASE } from "../../todo/graph/GraphClient.js"
 import type { Task, TaskList } from "../../todo/graph/types.js"
 import { GitHubClient, GITHUB_API_BASE, type GitHubIssue } from "../GitHubClient.js"
-import { extractGitHubRepo, extractGitHubIssueLink } from "../utils.js"
+import { extractGitHubIssueLink } from "../utils.js"
 import { buildIssueBodyFromTask, appendIssueLink } from "../../integrity/sync.js"
 
 export class GitHubTools {
@@ -21,7 +21,7 @@ export class GitHubTools {
   register(server: McpServer): void {
     server.tool(
       "create-github-issue-from-task",
-      "Create a GitHub issue from a Microsoft Todo task. The task title or body must contain a GitHub repository hashtag in the format #owner/repo (e.g. #myorg/myrepo). Requires the GITHUB_TOKEN environment variable. The GitHub issue URL is stored back in the task body so it can be synced later.",
+      "Create a GitHub issue from a Microsoft Todo task. The task must be in a To Do list whose parent group name matches a GitHub owner/org and whose own name matches a repository (the new structural architecture: group → owner, list → repo). Requires the GITHUB_TOKEN environment variable. The GitHub issue URL is stored back in the task body so it can be synced later.",
       {
         listId: z.string().describe("ID of the task list"),
         taskId: z.string().describe("ID of the task"),
@@ -58,13 +58,15 @@ export class GitHubTools {
             }
           }
 
-          const repo = extractGitHubRepo(task.title) || extractGitHubRepo(bodyContent)
-          if (!repo) {
+          // Resolve owner/repo from the structural mapping:
+          // list group display name = GitHub owner, list display name = repository
+          const ownerRepo = await this.graphClient.resolveOwnerRepoFromList(listId)
+          if (!ownerRepo) {
             return {
               content: [
                 {
                   type: "text",
-                  text: `No GitHub repository hashtag found in task. Add a hashtag like #owner/repo to the task title or body.`,
+                  text: `The list does not belong to a To Do list group. Organise your lists so that the parent group name matches a GitHub owner/org and the list name matches a repository.`,
                 },
               ],
             }
@@ -73,7 +75,7 @@ export class GitHubTools {
           const issueBody = buildIssueBodyFromTask(bodyContent)
 
           const issue = await this.gitHubClient.request<GitHubIssue>(
-            `${GITHUB_API_BASE}/repos/${repo.owner}/${repo.repo}/issues`,
+            `${GITHUB_API_BASE}/repos/${ownerRepo.owner}/${ownerRepo.repo}/issues`,
             "POST",
             { title: task.title, body: issueBody },
           )

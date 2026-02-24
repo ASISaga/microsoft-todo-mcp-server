@@ -9,8 +9,10 @@
  *   1. Validation (GET/POST with ?validationToken=...) – must echo the token back
  *   2. Change notification (POST with JSON payload)
  *
- * When a new To Do task is created whose title or body contains a
- * #owner/repo hashtag, the function automatically opens a GitHub issue.
+ * When a new To Do task is created in a list whose parent group name matches a
+ * GitHub owner/org and whose list display name matches a repository name, the
+ * function automatically opens a GitHub issue.  No hashtags are required – the
+ * structural mapping (group → owner, list → repo) determines the target.
  *
  * Required App Settings:
  *   GITHUB_TOKEN  – GitHub personal access token with repo scope
@@ -28,7 +30,6 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions"
 import { graphClient } from "../../todo/graph/GraphClient.js"
 import { gitHubClient, GITHUB_API_BASE } from "../../github/GitHubClient.js"
-import { extractGitHubRepo } from "../../github/utils.js"
 import { hasGitHubIssueLink, buildIssueBodyFromTask, appendIssueLink } from "../../integrity/sync.js"
 
 // ── Notification processing ───────────────────────────────────────────────────
@@ -77,23 +78,31 @@ async function processNotification(notification: GraphNotification, context: Inv
 
   const bodyContent = task.body?.content ?? ""
 
-  // Skip if a GitHub issue link already exists
+  // Skip if a GitHub issue link already exists (task already synced)
   if (hasGitHubIssueLink(bodyContent)) {
     context.log(`Task "${task.title}" already has a GitHub issue link`)
     return
   }
 
-  // Look for #owner/repo in title or body
-  const repo = extractGitHubRepo(task.title) ?? extractGitHubRepo(bodyContent)
-  if (!repo) {
-    context.log(`Task "${task.title}" has no #owner/repo hashtag – skipping`)
+  // Extract listId from the resource path and resolve owner/repo structurally.
+  // The list group display name = GitHub owner; the list display name = repo.
+  const listIdMatch = notification.resource.match(/lists\/([^/]+)\/tasks/)
+  if (!listIdMatch) {
+    context.warn(`Could not extract listId from resource: ${notification.resource}`)
+    return
+  }
+  const listId = listIdMatch[1]
+
+  const ownerRepo = await graphClient.resolveOwnerRepoFromList(listId)
+  if (!ownerRepo) {
+    context.log(`List ${listId} has no associated list group – skipping GitHub issue creation`)
     return
   }
 
   const issueBody = buildIssueBodyFromTask(bodyContent)
 
   const issue = await gitHubClient.request<{ html_url: string; number: number }>(
-    `${GITHUB_API_BASE}/repos/${repo.owner}/${repo.repo}/issues`,
+    `${GITHUB_API_BASE}/repos/${ownerRepo.owner}/${ownerRepo.repo}/issues`,
     "POST",
     { title: task.title, body: issueBody },
   )
@@ -105,14 +114,9 @@ async function processNotification(notification: GraphNotification, context: Inv
   // Store the issue URL back in the task body so the link can be resolved later
   const updatedBody = appendIssueLink(bodyContent, issue.html_url)
 
-  // Extract listId from the resource path
-  const listIdMatch = notification.resource.match(/lists\/([^/]+)\/tasks/)
-  if (listIdMatch) {
-    const listId = listIdMatch[1]
-    await graphClient.request(`https://graph.microsoft.com/v1.0/me/todo/lists/${listId}/tasks/${task.id}`, "PATCH", {
-      body: { content: updatedBody, contentType: "text" },
-    })
-  }
+  await graphClient.request(`https://graph.microsoft.com/v1.0/me/todo/lists/${listId}/tasks/${task.id}`, "PATCH", {
+    body: { content: updatedBody, contentType: "text" },
+  })
 }
 
 // ── Azure Function handler ────────────────────────────────────────────────────
