@@ -9,8 +9,10 @@
  *     SMART goal phase change that is propagated to the linked To Do task.
  *
  *   To Do → GitHub
- *     A To Do task created with a #owner/repo hashtag triggers GitHub issue
+ *     A To Do task created in a list whose parent group name matches a GitHub
+ *     owner and whose list name matches a repository triggers GitHub issue
  *     creation; the resulting issue URL is stored back in the task body.
+ *     (Structural mapping: list group → owner, list → repo.  No hashtags.)
  *
  * All status-mapping and body-building logic is centralised here so that the
  * Azure Function handlers stay thin event dispatchers and the MCP tools share

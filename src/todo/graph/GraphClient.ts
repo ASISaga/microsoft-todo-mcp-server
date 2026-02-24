@@ -7,7 +7,7 @@
  *  - Special error message for MailboxNotEnabledForRESTAPI (personal accounts)
  *  - Returns `null` on network errors (errors are logged to stderr)
  */
-import { MS_GRAPH_BASE, USER_AGENT } from "../../integrity/constants.js"
+import { MS_GRAPH_BASE, MS_GRAPH_BETA_BASE, USER_AGENT } from "../../integrity/constants.js"
 import { AuthService, authService } from "../auth/AuthService.js"
 
 export { MS_GRAPH_BASE }
@@ -98,6 +98,30 @@ Microsoft only allows To Do API access for Microsoft 365 business accounts.
       console.error("Error making Graph API request:", error)
       return null
     }
+  }
+
+  /**
+   * Resolve the GitHub owner and repository for a given To Do list.
+   *
+   * Uses the Microsoft Graph beta API to read:
+   *  - The list's `displayName` → repository name
+   *  - The list's `groupId`    → look up the list group's `displayName` → owner
+   *
+   * Returns `null` when the list has no associated group (meaning it is not
+   * mapped to a GitHub repository in the structural architecture).
+   */
+  async resolveOwnerRepoFromList(listId: string): Promise<{ owner: string; repo: string } | null> {
+    const list = await this.request<{ id: string; displayName: string; groupId?: string }>(
+      `${MS_GRAPH_BETA_BASE}/me/todo/lists/${listId}`,
+    )
+    if (!list?.groupId) return null
+
+    const group = await this.request<{ id: string; displayName: string }>(
+      `${MS_GRAPH_BETA_BASE}/me/todo/listGroups/${list.groupId}`,
+    )
+    if (!group) return null
+
+    return { owner: group.displayName, repo: list.displayName }
   }
 }
 
